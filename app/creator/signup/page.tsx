@@ -1,0 +1,397 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Inter } from "next/font/google";
+import { 
+  EyeIcon, 
+  EyeSlashIcon, 
+  ArrowUpTrayIcon, 
+  CheckCircleIcon,
+  XCircleIcon,
+  XMarkIcon,
+  ChevronUpDownIcon
+} from "@heroicons/react/24/outline";
+import Loader from "@/components/Loader"; // IMPORT LOADER
+
+const inter = Inter({ subsets: ["latin"] });
+
+// --- CONFIGURATION ---
+const BASE_URL = "http://localhost:3000"; 
+
+const AVAILABLE_NICHES = [
+  "Tech", "Fashion", "Lifestyle", "Beauty", "Gaming", 
+  "Fitness", "Food", "Travel", "Finance", "Education",
+  "Entertainment", "Health", "Business", "Art", "Music"
+];
+
+const FALLBACK_BANKS = [
+    { name: "Access Bank", code: "044" },
+    { name: "Guaranty Trust Bank", code: "058" },
+    { name: "Kuda Bank", code: "50211" },
+    { name: "OPay", code: "999992" },
+    { name: "United Bank for Africa", code: "033" },
+    { name: "Zenith Bank", code: "057" },
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const Toast = ({ message, type, isVisible, onClose }: { message: string, type: "success"|"error", isVisible: boolean, onClose: () => void }) => {
+  useEffect(() => {
+    if (isVisible) {
+      const timer = setTimeout(onClose, 4000); 
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible, onClose]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className={`fixed top-5 left-1/2 transform -translate-x-1/2 z-100 flex items-center gap-2 px-6 py-3 rounded-lg shadow-xl transition-all duration-300 ${
+      isVisible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
+    } ${type === "success" ? "bg-emerald-600 text-white" : "bg-red-500 text-white"}`}>
+      {type === "success" ? <CheckCircleIcon className="w-5 h-5"/> : <XCircleIcon className="w-5 h-5"/>}
+      <span className="font-medium text-sm">{message}</span>
+    </div>
+  );
+};
+
+const NicheModal = ({ isOpen, onClose, selectedNiches, onToggle }: { isOpen: boolean, onClose: () => void, selectedNiches: string[], onToggle: (n: string) => void }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all animate-in fade-in">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
+                <button aria-label="Close modal" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">Select your Niches</h3>
+                <p className="text-sm text-gray-500 mb-6">Select between 1 and 3 categories.</p>
+                <div className="flex flex-wrap gap-3 mb-8">
+                    {AVAILABLE_NICHES.map((niche) => (
+                        <button
+                            key={niche}
+                            type="button"
+                            onClick={() => onToggle(niche)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                                selectedNiches.includes(niche)
+                                ? "bg-emerald-500 text-white border-emerald-500 shadow-md transform scale-105" 
+                                : "bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50"
+                            }`}
+                        >
+                            {niche}
+                        </button>
+                    ))}
+                </div>
+                <button onClick={onClose} className="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl hover:bg-slate-800 transition-colors">Done</button>
+            </div>
+        </div>
+    );
+};
+
+export default function CreatorSignup() {
+  const router = useRouter();
+  
+  const [step, setStep] = useState(1); 
+  const [formData, setFormData] = useState({
+    username: "", email: "", password: "", 
+    profilePic: null as File | null, 
+    nicheTags: [] as string[], bio: "", 
+    rate: "", instagram: "", tiktok: "", accountNumber: "", bankName: "", bankCode: ""
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [toast, setToast] = useState({ message: "", type: "success" as "success" | "error", isVisible: false });
+  
+  const [isNicheModalOpen, setIsNicheModalOpen] = useState(false);
+  const [banks, setBanks] = useState<{name: string, code: string}[]>(FALLBACK_BANKS);
+  const [bankSearchTerm, setBankSearchTerm] = useState("");
+  const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+        try {
+            const response = await fetch("https://api.paystack.co/bank", { method: "GET" });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status) {
+                    setBanks(data.data);
+                    return;
+                }
+            }
+            setBanks(FALLBACK_BANKS);
+        } catch (error) {
+            setBanks(FALLBACK_BANKS);
+        }
+    };
+    fetchBanks();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData((prev) => ({ ...prev, profilePic: e.target.files![0] }));
+    }
+  };
+
+  const showError = (msg: string) => setToast({ message: msg, type: "error", isVisible: true });
+
+  const toggleNiche = (niche: string) => {
+    setFormData((prev) => {
+      const currentTags = prev.nicheTags;
+      if (currentTags.includes(niche)) return { ...prev, nicheTags: currentTags.filter((t) => t !== niche) };
+      if (currentTags.length >= 3) { showError("You can only select up to 3 niches"); return prev; }
+      return { ...prev, nicheTags: [...currentTags, niche] };
+    });
+  };
+
+  const handleBankSelect = (bank: {name: string, code: string}) => {
+      setFormData(prev => ({ ...prev, bankName: bank.name, bankCode: bank.code }));
+      setBankSearchTerm(bank.name);
+      setIsBankDropdownOpen(false);
+  };
+
+  const getAnimationClass = (sectionStep: number) => {
+    if (step === sectionStep) {
+        return "translate-x-0 md:translate-y-0 opacity-100 relative z-10";
+    } else if (step > sectionStep) {
+        return "-translate-x-full md:-translate-y-full opacity-0 absolute z-0 pointer-events-none";
+    } else {
+        return "translate-x-full md:translate-y-full opacity-0 absolute z-0 pointer-events-none";
+    }
+  };
+
+  const handleNextStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (step === 1) {
+        if (!formData.username || !formData.email || !formData.password) return showError("Please fill in all fields");
+        if (!EMAIL_REGEX.test(formData.email)) return showError("Please enter a valid email address");
+        if (formData.password.length < 6) return showError("Password must be at least 6 characters");
+        setStep(2);
+    } else if (step === 2) {
+        if (formData.nicheTags.length === 0) return showError("Please select at least one niche");
+        if (!formData.bio) return showError("Please tell us a bit about yourself");
+        if (!formData.rate || Number(formData.rate) < 0) return showError("Please enter a valid rate (cannot be negative)");
+        setStep(3);
+    }
+  };
+
+  const handleFinalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.instagram && !formData.tiktok) return showError("Please provide at least one social media link");
+    if (!formData.accountNumber || !formData.bankCode) return showError("Please select a valid bank and enter account number");
+    if (formData.accountNumber.length < 10) return showError("Account number looks too short");
+
+    setIsLoading(true);
+
+    try {
+        const signupRes = await fetch(`${BASE_URL}/auth/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: formData.username,
+                email: formData.email,
+                password: formData.password,
+                role: "creator"
+            }),
+        });
+
+        const signupData = await signupRes.json();
+        if (!signupRes.ok) throw new Error(signupData.message || "Signup failed");
+
+        const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: formData.email, password: formData.password }),
+        });
+
+        if (!loginRes.ok) throw new Error("Auto-login failed after signup");
+        const loginData = await loginRes.json();
+        const token = loginData.access_token || loginData.token;
+
+        if (!token) throw new Error("No access token received");
+
+        await fetch(`${BASE_URL}/creator`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                bio: formData.bio,
+                niche: formData.nicheTags.join(", "),
+                tiktok: formData.tiktok,
+                instagram: formData.instagram
+            }),
+        });
+
+        await fetch(`${BASE_URL}/creator/finance`, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                rate: Number(formData.rate), 
+                bankName: formData.bankName,
+                accountNumber: formData.accountNumber
+            }),
+        });
+
+        setToast({ message: "Account created successfully!", type: "success", isVisible: true });
+        localStorage.setItem("accessToken", token);
+        
+        setIsRedirecting(true); // START LOADER
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        router.push("/creator/dashboard");
+
+    } catch (error: any) {
+        showError(error.message || "Something went wrong. Please try again.");
+        setIsLoading(false);
+    }
+  };
+
+  const filteredBanks = banks.filter(bank => bank.name.toLowerCase().includes(bankSearchTerm.toLowerCase()));
+
+  // USE SHARED LOADER
+  if (isRedirecting) return <Loader />;
+
+  return (
+    <div className={`min-h-screen flex flex-col md:flex-row bg-white ${inter.className} overflow-hidden`}>
+      <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} />
+      
+      <NicheModal 
+        isOpen={isNicheModalOpen} 
+        onClose={() => {
+            if(formData.nicheTags.length < 1) return showError("Please select at least 1 niche");
+            setIsNicheModalOpen(false)
+        }} 
+        selectedNiches={formData.nicheTags} 
+        onToggle={toggleNiche} 
+      />
+
+      <div className="hidden md:block w-1/2 bg-[#EEEDEE] relative overflow-hidden">
+        <Image src="/images/creator-image.png" alt="Monetize Illustration" fill className="object-contain" priority />
+      </div>
+
+      <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 md:p-8 bg-linear-to-b from-emerald-50/80 to-white md:bg-none md:bg-[#F9FAFB] min-h-screen relative">
+        <div className="max-w-md w-full relative">
+          
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-black mb-2 tracking-tight">Caskayd</h2>
+            <div className="flex justify-center gap-2 mt-2">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className={`h-1.5 w-8 rounded-full transition-colors ${step >= i ? 'bg-emerald-500' : 'bg-gray-200'}`}></div>
+                ))}
+            </div>
+          </div>
+
+          <div className="relative w-full overflow-hidden min-h-125">
+            {/* STEP 1 */}
+            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(1)}`}>
+                <form onSubmit={handleNextStep} className="space-y-8 px-1">
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
+                        <input type="text" name="username" value={formData.username} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your username" />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your email" />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                        <div className="relative">
+                            <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 pr-10 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your password" />
+                            <button aria-label="show-password" type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-3 text-gray-400 hover:text-gray-600 focus:outline-none"><EyeIcon className="h-5 w-5" /></button>
+                        </div>
+                    </div>
+                    <div className="text-right"><Link href="/creator/login" className="text-xs text-blue-600 hover:underline">Or pick up from where you left</Link></div>
+                    <button type="submit" className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5">Next</button>
+                </form>
+            </div>
+
+            {/* STEP 2 */}
+            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(2)}`}>
+                <form onSubmit={handleNextStep} className="space-y-6 px-1">
+                    <div className="flex flex-col items-center justify-center mb-6">
+                        <div className="relative w-28 h-28 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-all group overflow-hidden border-4 border-white shadow-lg">
+                            <input aria-label="input for images" type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
+                            {formData.profilePic ? <Image src={URL.createObjectURL(formData.profilePic)} alt="Preview" fill className="object-cover" /> : <ArrowUpTrayIcon className="h-8 w-8 text-white group-hover:-translate-y-1 transition-transform" />}
+                        </div>
+                        <p className="text-sm font-medium text-gray-600 mt-3 bg-white/60 px-3 py-1 rounded-full">Upload profile photo</p>
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Minimum Rate (₦)</label>
+                        <input type="number" name="rate" min="0" value={formData.rate} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="e.g. 50000" />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Your Niches <span className="text-gray-400 font-normal text-xs ml-1">(Max 3)</span></label>
+                        <div onClick={() => setIsNicheModalOpen(true)} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent cursor-pointer hover:border-emerald-500 hover:bg-white transition-all flex items-center rounded-t-md">
+                            {formData.nicheTags.length > 0 ? <span className="text-gray-900 font-medium">{formData.nicheTags.join(", ")}</span> : <span className="text-gray-400">Select niches</span>}
+                        </div>
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">What&apos;s uniquely you?</label>
+                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={3} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 resize-none rounded-t-md" placeholder="Tell us about your style..." />
+                    </div>
+                    <div className="pt-4 flex flex-col gap-3">
+                        <button type="submit" className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5">Almost There</button>
+                        <button type="button" onClick={() => setStep(1)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2">Go Back</button>
+                    </div>
+                </form>
+            </div>
+
+            {/* STEP 3 */}
+            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(3)}`}>
+                <form onSubmit={handleFinalSubmit} className="space-y-6 px-1">
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Instagram URL</label>
+                        <input type="text" name="instagram" value={formData.instagram} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="https://instagram.com/username" />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">TikTok URL</label>
+                        <input type="text" name="tiktok" value={formData.tiktok} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="https://tiktok.com/@username" />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Bank Name</label>
+                        <div className="relative">
+                            <input type="text" value={bankSearchTerm} onChange={(e) => { setBankSearchTerm(e.target.value); setIsBankDropdownOpen(true); setFormData(prev => ({...prev, bankCode: ""})); }} onFocus={() => setIsBankDropdownOpen(true)} className="w-full border-b border-gray-300 py-3 px-2 pr-8 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Search your bank..." />
+                            <ChevronUpDownIcon className="absolute right-2 top-3 h-5 w-5 text-gray-400 pointer-events-none" />
+                        </div>
+                        {isBankDropdownOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setIsBankDropdownOpen(false)}></div>
+                                <div className="absolute z-50 w-full bg-white shadow-xl max-h-48 overflow-y-auto rounded-lg mt-1 border border-gray-100">
+                                    {filteredBanks.length > 0 ? filteredBanks.map((bank) => (
+                                        <div key={bank.code} onClick={() => handleBankSelect(bank)} className="px-4 py-3 hover:bg-emerald-50 cursor-pointer text-sm text-gray-700 border-b border-gray-50 last:border-0">{bank.name}</div>
+                                    )) : <div className="px-4 py-3 text-sm text-gray-400">No bank found</div>}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Account Number</label>
+                        <input type="text" name="accountNumber" maxLength={10} value={formData.accountNumber} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setFormData(prev => ({...prev, accountNumber: val})) }} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="0000000000" />
+                    </div>
+                    <div className="pt-4 flex flex-col gap-3">
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5 flex justify-center gap-2">
+                            {isLoading ? "Creating Account..." : "Get Started"}
+                        </button>
+                        <button type="button" onClick={() => setStep(2)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2">Go Back</button>
+                    </div>
+                </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
