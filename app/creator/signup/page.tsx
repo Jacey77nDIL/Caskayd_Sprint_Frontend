@@ -14,18 +14,13 @@ import {
   XMarkIcon,
   ChevronUpDownIcon
 } from "@heroicons/react/24/outline";
-import Loader from "@/components/Loader"; // IMPORT LOADER
+import Loader from "@/components/Loader"; 
 
 const inter = Inter({ subsets: ["latin"] });
-
-// --- CONFIGURATION ---
 const BASE_URL = "http://localhost:3000"; 
 
-const AVAILABLE_NICHES = [
-  "Tech", "Fashion", "Lifestyle", "Beauty", "Gaming", 
-  "Fitness", "Food", "Travel", "Finance", "Education",
-  "Entertainment", "Health", "Business", "Art", "Music"
-];
+const AVAILABLE_NICHES = ["fitness", "education", "fashion", "beauty", "tech", 
+  "lifestyle", "business", "travel", "education", "Food", "entertainment"];
 
 const FALLBACK_BANKS = [
     { name: "Access Bank", code: "044" },
@@ -49,7 +44,7 @@ const Toast = ({ message, type, isVisible, onClose }: { message: string, type: "
   if (!isVisible) return null;
 
   return (
-    <div className={`fixed top-5 left-1/2 transform -translate-x-1/2 z-100 flex items-center gap-2 px-6 py-3 rounded-lg shadow-xl transition-all duration-300 ${
+    <div className={`fixed top-5 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-2 px-6 py-3 rounded-lg shadow-xl transition-all duration-300 ${
       isVisible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
     } ${type === "success" ? "bg-emerald-600 text-white" : "bg-red-500 text-white"}`}>
       {type === "success" ? <CheckCircleIcon className="w-5 h-5"/> : <XCircleIcon className="w-5 h-5"/>}
@@ -97,8 +92,9 @@ export default function CreatorSignup() {
   const [formData, setFormData] = useState({
     username: "", email: "", password: "", 
     profilePic: null as File | null, 
-    nicheTags: [] as string[], bio: "", 
-    rate: "", instagram: "", tiktok: "", accountNumber: "", bankName: "", bankCode: ""
+    nicheTags: [] as string[], bio: "", location: "", // Added Location
+    pricePerPost: "", pricePerStory: "", // Changed Rate to Split Pricing
+    instagram: "", tiktok: "", accountNumber: "", bankName: "", bankCode: ""
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -178,7 +174,8 @@ export default function CreatorSignup() {
     } else if (step === 2) {
         if (formData.nicheTags.length === 0) return showError("Please select at least one niche");
         if (!formData.bio) return showError("Please tell us a bit about yourself");
-        if (!formData.rate || Number(formData.rate) < 0) return showError("Please enter a valid rate (cannot be negative)");
+        if (!formData.location) return showError("Please enter your location");
+        if (!formData.pricePerPost || !formData.pricePerStory) return showError("Please enter your pricing details");
         setStep(3);
     }
   };
@@ -219,28 +216,26 @@ export default function CreatorSignup() {
 
         if (!token) throw new Error("No access token received");
 
+        // Updated Profile Payload with Location
         await fetch(`${BASE_URL}/creator`, {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({
                 bio: formData.bio,
                 niche: formData.nicheTags.join(", "),
+                location: formData.location, // Added Location
                 tiktok: formData.tiktok,
                 instagram: formData.instagram
             }),
         });
 
+        // Updated Finance Payload with Split Pricing
         await fetch(`${BASE_URL}/creator/finance`, {
             method: "POST",
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({
-                rate: Number(formData.rate), 
+                pricePerPost: Number(formData.pricePerPost), 
+                pricePerStory: Number(formData.pricePerStory),
                 bankName: formData.bankName,
                 accountNumber: formData.accountNumber
             }),
@@ -249,7 +244,7 @@ export default function CreatorSignup() {
         setToast({ message: "Account created successfully!", type: "success", isVisible: true });
         localStorage.setItem("accessToken", token);
         
-        setIsRedirecting(true); // START LOADER
+        setIsRedirecting(true);
         await new Promise(resolve => setTimeout(resolve, 2000));
         router.push("/creator/dashboard");
 
@@ -261,7 +256,6 @@ export default function CreatorSignup() {
 
   const filteredBanks = banks.filter(bank => bank.name.toLowerCase().includes(bankSearchTerm.toLowerCase()));
 
-  // USE SHARED LOADER
   if (isRedirecting) return <Loader />;
 
   return (
@@ -282,7 +276,7 @@ export default function CreatorSignup() {
         <Image src="/images/creator-image.png" alt="Monetize Illustration" fill className="object-contain" priority />
       </div>
 
-      <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 md:p-8 bg-linear-to-b from-emerald-50/80 to-white md:bg-none md:bg-[#F9FAFB] min-h-screen relative">
+      <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-6 md:p-8 bg-gradient-to-b from-emerald-50/80 to-white md:bg-none md:bg-[#F9FAFB] min-h-screen relative">
         <div className="max-w-md w-full relative">
           
           <div className="text-center mb-8">
@@ -294,7 +288,7 @@ export default function CreatorSignup() {
             </div>
           </div>
 
-          <div className="relative w-full overflow-hidden min-h-125">
+          <div className="relative w-full overflow-hidden min-h-[550px]">
             {/* STEP 1 */}
             <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(1)}`}>
                 <form onSubmit={handleNextStep} className="space-y-8 px-1">
@@ -310,7 +304,7 @@ export default function CreatorSignup() {
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                         <div className="relative">
                             <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 pr-10 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your password" />
-                            <button aria-label="show-password" type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-3 text-gray-400 hover:text-gray-600 focus:outline-none"><EyeIcon className="h-5 w-5" /></button>
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-3 text-gray-400 hover:text-gray-600 focus:outline-none"><EyeIcon className="h-5 w-5" /></button>
                         </div>
                     </div>
                     <div className="text-right"><Link href="/creator/login" className="text-xs text-blue-600 hover:underline">Or pick up from where you left</Link></div>
@@ -318,30 +312,47 @@ export default function CreatorSignup() {
                 </form>
             </div>
 
-            {/* STEP 2 */}
+            {/* STEP 2 - UPDATED FIELDS */}
             <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(2)}`}>
                 <form onSubmit={handleNextStep} className="space-y-6 px-1">
-                    <div className="flex flex-col items-center justify-center mb-6">
-                        <div className="relative w-28 h-28 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-all group overflow-hidden border-4 border-white shadow-lg">
+                    <div className="flex flex-col items-center justify-center mb-4">
+                        <div className="relative w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-all group overflow-hidden border-4 border-white shadow-lg">
                             <input aria-label="input for images" type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
                             {formData.profilePic ? <Image src={URL.createObjectURL(formData.profilePic)} alt="Preview" fill className="object-cover" /> : <ArrowUpTrayIcon className="h-8 w-8 text-white group-hover:-translate-y-1 transition-transform" />}
                         </div>
-                        <p className="text-sm font-medium text-gray-600 mt-3 bg-white/60 px-3 py-1 rounded-full">Upload profile photo</p>
+                        <p className="text-xs font-medium text-gray-600 mt-2 bg-white/60 px-3 py-1 rounded-full">Upload profile photo</p>
                     </div>
+                    
+                    {/* Location Field */}
                     <div className="relative">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Minimum Rate (₦)</label>
-                        <input type="number" name="rate" min="0" value={formData.rate} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="e.g. 50000" />
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
+                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="City, Country" />
                     </div>
+
                     <div className="relative">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Your Niches <span className="text-gray-400 font-normal text-xs ml-1">(Max 3)</span></label>
                         <div onClick={() => setIsNicheModalOpen(true)} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent cursor-pointer hover:border-emerald-500 hover:bg-white transition-all flex items-center rounded-t-md">
                             {formData.nicheTags.length > 0 ? <span className="text-gray-900 font-medium">{formData.nicheTags.join(", ")}</span> : <span className="text-gray-400">Select niches</span>}
                         </div>
                     </div>
+
+                    {/* Split Pricing */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Price / Post</label>
+                            <input type="number" name="pricePerPost" min="0" value={formData.pricePerPost} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="₦" />
+                        </div>
+                        <div className="relative">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Price / Story</label>
+                            <input type="number" name="pricePerStory" min="0" value={formData.pricePerStory} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="₦" />
+                        </div>
+                    </div>
+
                     <div className="relative">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">What&apos;s uniquely you?</label>
-                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={3} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 resize-none rounded-t-md" placeholder="Tell us about your style..." />
+                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={2} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 resize-none rounded-t-md" placeholder="Tell us about your style..." />
                     </div>
+
                     <div className="pt-4 flex flex-col gap-3">
                         <button type="submit" className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5">Almost There</button>
                         <button type="button" onClick={() => setStep(1)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2">Go Back</button>

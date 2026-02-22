@@ -21,11 +21,8 @@ const BASE_URL = "http://localhost:3000";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
 
-const AVAILABLE_INDUSTRIES = [
-  "E-commerce", "SaaS", "Fashion", "Beauty", "Tech", 
-  "Retail", "Health & Wellness", "Finance", "Travel", "Real Estate",
-  "Education", "Food & Beverage", "Entertainment", "Agency", "Non-Profit"
-];
+const AVAILABLE_INDUSTRIES = ["fitness", "education", "fashion", "beauty", "tech", 
+  "lifestyle", "business", "travel", "education", "Food", "entertainment"];/*Food, fashion, beauty, fitness, tech, education, travel, lifestyle, business, entertainment */
 
 const Toast = ({ message, type, isVisible, onClose }: { message: string, type: "success"|"error", isVisible: boolean, onClose: () => void }) => {
   useEffect(() => {
