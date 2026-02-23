@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Inter } from "next/font/google";
 import { 
   EyeIcon, 
-  EyeSlashIcon, 
   ArrowUpTrayIcon, 
   CheckCircleIcon,
   XCircleIcon,
@@ -17,10 +16,14 @@ import {
 import Loader from "@/components/Loader"; 
 
 const inter = Inter({ subsets: ["latin"] });
+
+// --- CONFIGURATION ---
 const BASE_URL = "http://localhost:3000"; 
 
-const AVAILABLE_NICHES = ["fitness", "education", "fashion", "beauty", "tech", 
-  "lifestyle", "business", "travel", "education", "Food", "entertainment"];
+const AVAILABLE_NICHES = [
+  "fitness", "education", "fashion", "beauty", "tech", 
+  "lifestyle", "business", "travel", "food", "entertainment"
+];
 
 const FALLBACK_BANKS = [
     { name: "Access Bank", code: "044" },
@@ -92,8 +95,12 @@ export default function CreatorSignup() {
   const [formData, setFormData] = useState({
     username: "", email: "", password: "", 
     profilePic: null as File | null, 
-    nicheTags: [] as string[], bio: "", location: "", // Added Location
-    pricePerPost: "", pricePerStory: "", // Changed Rate to Split Pricing
+    nicheTags: [] as string[], bio: "", 
+    location: "", 
+    rate: "", 
+    pricePerPost: "", 
+    pricePerStory: "", 
+    pricePerVideo: "", 
     instagram: "", tiktok: "", accountNumber: "", bankName: "", bankCode: ""
   });
 
@@ -175,11 +182,17 @@ export default function CreatorSignup() {
         if (formData.nicheTags.length === 0) return showError("Please select at least one niche");
         if (!formData.bio) return showError("Please tell us a bit about yourself");
         if (!formData.location) return showError("Please enter your location");
-        if (!formData.pricePerPost || !formData.pricePerStory) return showError("Please enter your pricing details");
+        
+        if (!formData.rate) return showError("Please enter your base rate");
+        if (!formData.pricePerPost) return showError("Please enter your price per post");
+        if (!formData.pricePerStory) return showError("Please enter your price per story");
+        if (!formData.pricePerVideo) return showError("Please enter your price per video");
+        
         setStep(3);
     }
   };
 
+  // --- FINAL SUBMIT LOGIC ---
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -190,6 +203,7 @@ export default function CreatorSignup() {
     setIsLoading(true);
 
     try {
+        // Step 1: Signup
         const signupRes = await fetch(`${BASE_URL}/auth/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -204,6 +218,7 @@ export default function CreatorSignup() {
         const signupData = await signupRes.json();
         if (!signupRes.ok) throw new Error(signupData.message || "Signup failed");
 
+        // Step 2: Login
         const loginRes = await fetch(`${BASE_URL}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -215,40 +230,61 @@ export default function CreatorSignup() {
         const token = loginData.access_token || loginData.token;
 
         if (!token) throw new Error("No access token received");
+        
+        localStorage.setItem("accessToken", token);
 
-        // Updated Profile Payload with Location
-        await fetch(`${BASE_URL}/creator`, {
+        // Step 3: Create Profile
+        const profileRes = await fetch(`${BASE_URL}/creator`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify({
                 bio: formData.bio,
-                niche: formData.nicheTags.join(", "),
-                location: formData.location, // Added Location
+                niches: formData.nicheTags, 
+                location: formData.location,
                 tiktok: formData.tiktok,
                 instagram: formData.instagram
             }),
         });
+        
+        const profileData = await profileRes.json();
+        if (!profileRes.ok) throw new Error(profileData.message || "Failed to create creator profile");
 
-        // Updated Finance Payload with Split Pricing
-        await fetch(`${BASE_URL}/creator/finance`, {
+        console.log("✅ SUCCESS! CREATOR PROFILE ID:", profileData.id); 
+        alert(`Creator Profile ID: ${profileData.id} \n(Copy this for Admin Dashboard)`);
+
+        // Step 4: Create Finance
+        // We do NOT need to manually send 'creator: { id }' anymore.
+        // The backend engineer fixed it so it automatically attaches to the logged-in user.
+        const financeRes = await fetch(`${BASE_URL}/creator/finance`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
             body: JSON.stringify({
-                pricePerPost: Number(formData.pricePerPost), 
+                pricePerPost: Number(formData.pricePerPost),
                 pricePerStory: Number(formData.pricePerStory),
+                pricePerVideo: Number(formData.pricePerVideo),
+                rate: Number(formData.rate),
                 bankName: formData.bankName,
-                accountNumber: formData.accountNumber
+                accountNumber: formData.accountNumber,
             }),
         });
 
+        const financeData = await financeRes.json();
+        if (!financeRes.ok) throw new Error(financeData.message || "Failed to create finance profile");
+
         setToast({ message: "Account created successfully!", type: "success", isVisible: true });
-        localStorage.setItem("accessToken", token);
         
-        setIsRedirecting(true);
+        setIsRedirecting(true); 
         await new Promise(resolve => setTimeout(resolve, 2000));
         router.push("/creator/dashboard");
 
     } catch (error: any) {
+        console.error("Signup Process Error:", error);
         showError(error.message || "Something went wrong. Please try again.");
         setIsLoading(false);
     }
@@ -288,7 +324,7 @@ export default function CreatorSignup() {
             </div>
           </div>
 
-          <div className="relative w-full overflow-hidden min-h-[550px]">
+          <div className="relative w-full overflow-hidden min-h-[600px]">
             {/* STEP 1 */}
             <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(1)}`}>
                 <form onSubmit={handleNextStep} className="space-y-8 px-1">
@@ -312,10 +348,10 @@ export default function CreatorSignup() {
                 </form>
             </div>
 
-            {/* STEP 2 - UPDATED FIELDS */}
+            {/* STEP 2 */}
             <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(2)}`}>
-                <form onSubmit={handleNextStep} className="space-y-6 px-1">
-                    <div className="flex flex-col items-center justify-center mb-4">
+                <form onSubmit={handleNextStep} className="space-y-5 px-1">
+                    <div className="flex flex-col items-center justify-center mb-2">
                         <div className="relative w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-all group overflow-hidden border-4 border-white shadow-lg">
                             <input aria-label="input for images" type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
                             {formData.profilePic ? <Image src={URL.createObjectURL(formData.profilePic)} alt="Preview" fill className="object-cover" /> : <ArrowUpTrayIcon className="h-8 w-8 text-white group-hover:-translate-y-1 transition-transform" />}
@@ -323,39 +359,46 @@ export default function CreatorSignup() {
                         <p className="text-xs font-medium text-gray-600 mt-2 bg-white/60 px-3 py-1 rounded-full">Upload profile photo</p>
                     </div>
                     
-                    {/* Location Field */}
                     <div className="relative">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
-                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="City, Country" />
+                        <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Location</label>
+                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm" placeholder="City, Country" />
                     </div>
 
                     <div className="relative">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Your Niches <span className="text-gray-400 font-normal text-xs ml-1">(Max 3)</span></label>
-                        <div onClick={() => setIsNicheModalOpen(true)} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent cursor-pointer hover:border-emerald-500 hover:bg-white transition-all flex items-center rounded-t-md">
-                            {formData.nicheTags.length > 0 ? <span className="text-gray-900 font-medium">{formData.nicheTags.join(", ")}</span> : <span className="text-gray-400">Select niches</span>}
+                        <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Your Niches</label>
+                        <div onClick={() => setIsNicheModalOpen(true)} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent cursor-pointer hover:border-emerald-500 hover:bg-white transition-all flex items-center text-sm">
+                            {formData.nicheTags.length > 0 ? <span className="text-gray-900 font-medium">{formData.nicheTags.join(", ")}</span> : <span className="text-gray-400">Select niches (Max 3)</span>}
                         </div>
                     </div>
 
-                    {/* Split Pricing */}
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Base Rate (Starting At)</label>
+                        <input type="number" name="rate" min="0" value={formData.rate} onChange={handleChange} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm" placeholder="₦ 50,000" />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="relative">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Price / Post</label>
-                            <input type="number" name="pricePerPost" min="0" value={formData.pricePerPost} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="₦" />
+                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Price / Post</label>
+                            <input type="number" name="pricePerPost" min="0" value={formData.pricePerPost} onChange={handleChange} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm" placeholder="₦" />
                         </div>
                         <div className="relative">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Price / Story</label>
-                            <input type="number" name="pricePerStory" min="0" value={formData.pricePerStory} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="₦" />
+                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Price / Story</label>
+                            <input type="number" name="pricePerStory" min="0" value={formData.pricePerStory} onChange={handleChange} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm" placeholder="₦" />
+                        </div>
+                        <div className="relative col-span-2">
+                            <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Price / Video</label>
+                            <input type="number" name="pricePerVideo" min="0" value={formData.pricePerVideo} onChange={handleChange} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 text-sm" placeholder="₦" />
                         </div>
                     </div>
 
                     <div className="relative">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">What&apos;s uniquely you?</label>
-                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={2} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 resize-none rounded-t-md" placeholder="Tell us about your style..." />
+                        <label className="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">Bio</label>
+                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={2} className="w-full border-b border-gray-300 py-2 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 focus:bg-white transition-all text-gray-900 placeholder-gray-400 resize-none text-sm" placeholder="Tell us about yourself..." />
                     </div>
 
-                    <div className="pt-4 flex flex-col gap-3">
-                        <button type="submit" className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5">Almost There</button>
-                        <button type="button" onClick={() => setStep(1)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2">Go Back</button>
+                    <div className="pt-2 flex flex-col gap-2">
+                        <button type="submit" className="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5 text-sm">Almost There</button>
+                        <button type="button" onClick={() => setStep(1)} className="w-full text-center text-xs text-gray-500 hover:text-gray-800 py-2">Go Back</button>
                     </div>
                 </form>
             </div>

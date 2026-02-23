@@ -9,13 +9,9 @@ import {
   MagnifyingGlassIcon, 
   ChevronDownIcon, 
   XMarkIcon, 
-  PaperClipIcon, 
-  CalendarIcon, 
-  CurrencyDollarIcon,
   Squares2X2Icon
 } from "@heroicons/react/24/outline";
 import Sidebar from "@/components/Sidebar"; 
-import Loader from "@/components/Loader"; // Using your shared Loader
 
 const inter = Inter({ subsets: ["latin"] });
 const BASE_URL = "http://localhost:3000";
@@ -23,8 +19,7 @@ const BASE_URL = "http://localhost:3000";
 // --- CONFIGURATION ---
 const FILTER_OPTIONS = {
   niche: ["fitness", "education", "fashion", "beauty", "tech", 
-  "lifestyle", "business", "travel", "education", "Food", "entertainment"],
-  // Mapping frontend labels to backend query values if needed
+  "lifestyle", "business", "travel", "food", "entertainment"],
   price: [
       { label: "Under ₦50k", value: "50000" },
       { label: "Under ₦100k", value: "100000" },
@@ -33,6 +28,26 @@ const FILTER_OPTIONS = {
   ],
   platform: ["instagram", "tiktok"]
 };
+
+// --- HELPER: Number Formatter ---
+const formatNumber = (num: number) => {
+    if (!num) return "0";
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+};
+
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.8,5.8 0 0,1 16.2,22H7.8C4.6,22 2,19.4 2,16.2V7.8A5.8,5.8 0 0,1 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4A3.6,3.6 0 0,0 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M17.25,5.5A1.25,1.25 0 0,1 18.5,6.75A1.25,1.25 0 0,1 17.25,8A1.25,1.25 0 0,1 16,6.75A1.25,1.25 0 0,1 17.25,5.5M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z" />
+  </svg>
+);
+
+const TiktokIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.49-3.35-3.98-5.6-.54-2.49.42-5.18 2.45-6.83 1.98-1.63 4.81-1.82 7.01-.52.14.09.28.19.42.29-.01 1.33-.01 2.66-.01 4-.08-.03-.17-.07-.25-.11-.95-.49-2.05-.64-3.11-.42-1.18.24-2.19 1.05-2.67 2.17-.5 1.17-.37 2.54.34 3.59.83 1.25 2.51 1.74 3.94 1.13.92-.38 1.63-1.16 1.93-2.1.26-.81.25-1.68.25-2.53-.02-5.24-.02-10.49-.02-15.73z" />
+  </svg>
+);
 
 // --- COMPONENTS ---
 
@@ -82,29 +97,53 @@ const FilterDropdown = ({ label, options, onSelect }: { label: string, options: 
   );
 };
 
-// Creator Card - Updated to use Real Data Structure
+// --- CREATOR CARD (UI PRESERVED, LOGIC UPDATED) ---
 const CreatorCard = ({ creator, onInvite }: { creator: any, onInvite: (c: any) => void }) => {
-    // Default to first available platform or instagram
-    // NOTE: Backend needs to send 'metrics' as an object/array. Adjusting based on Day 2 spec.
-    const platform = creator.metrics?.platform || "instagram"; 
-    
+    // 1. Platform Toggle State
+    const [platform, setPlatform] = useState<"instagram" | "tiktok">("instagram");
+
+    // 2. Toggle Handler
+    const togglePlatform = (e: React.MouseEvent) => {
+        e.stopPropagation(); 
+        setPlatform(prev => prev === "instagram" ? "tiktok" : "instagram");
+    };
+
+    // 3. Dynamic Data Selection based on Platform
+    const handleUrl = platform === "instagram" ? creator.instagram : creator.tiktok;
+    const followers = platform === "instagram" ? creator.instagramFollowers : creator.tiktokFollowers;
+    const engagement = platform === "instagram" ? creator.instagramEngagementRate : creator.tiktokEngagementRate;
+
+    // Helper to extract clean username handle
+    const getHandle = () => {
+        if (!handleUrl) return "Unknown";
+        let clean = handleUrl.replace(/(^\w+:|^)\/\//, '').replace("www.", "");
+        clean = clean.replace("instagram.com/", "").replace("tiktok.com/", "").replace("@", "");
+        if(clean.endsWith("/")) clean = clean.slice(0, -1);
+        return clean; // Removed @ to match your previous style, add back if needed
+    };
+
+    const handle = getHandle();
+
     return (
         <div className="relative group aspect-[3/4] rounded-2xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-all duration-300 bg-gray-200">
-            {creator.profileImage ? (
+            {/* Image Handling */}
+            {creator.profileImageUrl ? (
                 <Image 
-                    src={creator.profileImage} 
-                    alt={creator.username || "Creator"} 
+                    src={creator.profileImageUrl} 
+                    alt={handle} 
                     fill 
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
-                    No Image
+                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100 flex-col gap-2">
+                    <span>No Image</span>
                 </div>
             )}
             
-            <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent"></div>
+            {/* Dark Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
 
+            {/* Top Row: Invite & Platform Toggle */}
             <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                 <button 
                     onClick={(e) => { e.stopPropagation(); onInvite(creator); }}
@@ -113,35 +152,41 @@ const CreatorCard = ({ creator, onInvite }: { creator: any, onInvite: (c: any) =
                     + Invite
                 </button>
                 
-                <div className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md bg-white/20">
-                     {/* Dynamic Icon based on platform */}
+                {/* Platform Toggle Icon */}
+                <button 
+                    onClick={togglePlatform}
+                    className="w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md bg-white/20 hover:bg-white/30 transition-colors z-20"
+                >
                      {platform === 'tiktok' ? (
-                         <span className="text-xs font-bold text-white">TT</span>
+                         <TiktokIcon className="w-5 h-5 text-black" />
                      ) : (
-                         <span className="text-xs font-bold text-white">IG</span>
+                         <InstagramIcon className="w-5 h-5 text-pink-500" />
                      )}
-                </div>
+                </button>
             </div>
 
+            {/* Bottom Info Area */}
             <div className="absolute bottom-0 left-0 w-full p-4 text-white">
-                <p className="font-bold text-lg mb-1">{creator.username || "Unknown"}</p>
-                <p className="text-xs text-gray-300 mb-2 truncate">{creator.bio}</p>
+                <p className="font-bold text-lg mb-1">{handle}</p>
+                <p className="text-xs text-gray-300 mb-2 truncate">{creator.bio || "No bio"}</p>
                 
+                {/* Stats Pills (Replaced Likes with Location) */}
                 <div className="flex items-center gap-2 text-xs text-gray-200 mb-2">
                     <span className="bg-white/10 px-2 py-0.5 rounded backdrop-blur-sm">
-                        {creator.metrics?.followers ? `${(creator.metrics.followers / 1000).toFixed(1)}k` : "0"} Follows
+                        {formatNumber(followers)} Follows
                     </span>
                     <span className="bg-white/10 px-2 py-0.5 rounded backdrop-blur-sm">
-                        {creator.metrics?.avgLikes ? `${(creator.metrics.avgLikes / 1000).toFixed(1)}k` : "0"} Likes
+                        {creator.location || "Unknown"}
                     </span>
                 </div>
                 
+                {/* Footer: Price & Engagement */}
                 <div className="flex justify-between items-center text-xs font-medium border-t border-white/20 pt-2 mt-2">
                     <span className="text-gray-100">
-                        {creator.finance?.pricePerPost ? `₦${creator.finance.pricePerPost.toLocaleString()}` : "N/A"}
+                        {creator.pricePerPost ? `₦${Number(creator.pricePerPost).toLocaleString()}` : "N/A"}
                     </span>
                     <span className="text-emerald-400">
-                        Eng: {creator.metrics?.engagementRate || "0"}%
+                        Eng: {engagement ? Number(engagement).toFixed(1) : "0"}%
                     </span>
                 </div>
             </div>
@@ -149,7 +194,7 @@ const CreatorCard = ({ creator, onInvite }: { creator: any, onInvite: (c: any) =
     );
 };
 
-// --- INVITE MODAL (Kept same layout) ---
+// --- INVITE MODAL ---
 const InviteModal = ({ isOpen, onClose, creator }: { isOpen: boolean, onClose: () => void, creator: any }) => {
     if (!isOpen || !creator) return null;
 
@@ -157,16 +202,15 @@ const InviteModal = ({ isOpen, onClose, creator }: { isOpen: boolean, onClose: (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="text-lg font-bold text-gray-900">Invite {creator.username}</h3>
+                    <h3 className="text-lg font-bold text-gray-900">Invite Creator</h3>
                     <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 transition-colors">
                         <XMarkIcon className="w-5 h-5 text-gray-500" />
                     </button>
                 </div>
                 <div className="p-6 space-y-5">
-                    {/* ... (Same modal content as before) ... */}
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-gray-700">Initial Message</label>
-                        <textarea rows={3} placeholder={`Hi ${creator.username}, we'd love to work with you...`} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 resize-none text-sm placeholder-gray-400"></textarea>
+                        <textarea rows={3} placeholder={`Hi, we'd love to work with you...`} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 resize-none text-sm placeholder-gray-400"></textarea>
                     </div>
                 </div>
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
@@ -205,7 +249,6 @@ export default function DiscoverPage() {
               // Construct Query String
               const params = new URLSearchParams();
               if (filters.niche) params.append("niche", filters.niche.toLowerCase());
-              // Example logic for price filtering (adjust based on actual backend param name)
               if (filters.price) params.append("maxPrice", filters.price); 
               
               // Backend Endpoint: GET /creator
@@ -218,9 +261,8 @@ export default function DiscoverPage() {
               
               if (res.ok) {
                   const data = await res.json();
-                  console.log("res =>",res)
                   console.log("data =>",data)
-                  setCreators(data); // Assuming data is an array of creators
+                  setCreators(data); 
               }
           } catch (error) {
               console.error("Failed to fetch creators", error);
@@ -298,7 +340,6 @@ export default function DiscoverPage() {
                             options={FILTER_OPTIONS.price} 
                             onSelect={(val) => handleFilterSelect("price", val)} 
                         />
-                        {/* Reset Filter Button (Optional) */}
                         {(filters.niche || filters.price) && (
                             <button 
                                 onClick={() => setFilters({ niche: "", price: "", platform: "" })}
@@ -319,7 +360,11 @@ export default function DiscoverPage() {
             ) : creators.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {creators.map((creator: any) => (
-                        <CreatorCard key={creator.id || Math.random()} creator={creator} onInvite={openInviteModal} />
+                        <CreatorCard 
+                          key={creator.id || Math.random()} 
+                          creator={creator} 
+                          onInvite={openInviteModal} 
+                        />
                     ))}
                 </div>
             ) : (
