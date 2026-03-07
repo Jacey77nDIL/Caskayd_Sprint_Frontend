@@ -1,65 +1,71 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Inter } from "next/font/google";
+import LandingNavigationPill from "@/components/LandingNavigationPill"; 
+
+const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    // h-screen + overflow-hidden prevents scrolling. flex-col organizes vertical spacing.
+    <div className={`h-screen w-full flex flex-col relative overflow-hidden bg-[#F8F9FA] ${inter.className}`}>
+      
+      {/* --- BACKGROUND GRADIENT MESH --- */}
+      <div className="absolute inset-0 z-0 pointer-events-none select-none">
+        {/* Top Right Purple Glow */}
+        <div className="absolute top-[-10%] right-[-5%] w-[40vw] h-[40vw] bg-purple-200/40 rounded-full blur-[80px] animate-pulse"></div>
+        {/* Bottom Left Green Glow */}
+        <div className="absolute bottom-[-10%] left-[-10%] w-[45vw] h-[45vw] bg-emerald-100/60 rounded-full blur-[100px]"></div>
+      </div>
+
+      {/* --- NAVIGATION --- */}
+      <LandingNavigationPill />
+
+      {/* --- MAIN CONTENT (Centered) --- */}
+      {/* pt-20 accounts for the header. flex-1 + justify-center centers it vertically. */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full pt-20">
+        
+        {/* White Glassmorphism Card */}
+        {/* Max-height helps prevent it from getting too tall on large screens */}
+        <div className="w-full max-w-4xl bg-white/40 backdrop-blur-lg border border-white/60 shadow-[0_8px_40px_rgba(0,0,0,0.04)] rounded-[2.5rem] p-8 md:p-14 text-center mx-auto transition-transform duration-700 flex flex-col items-center justify-center gap-6">
+          
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.1] max-w-3xl">
+            Connect Brands With Top <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6366F1] to-[#8B5CF6]">
+                Content Creators
+            </span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+          <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed font-medium">
+            Scale your ROI with data-driven creator partnerships. Our platform
+            helps you find, manage, and track high-performing content at scale.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+          {/* Action Buttons */}
+          <div className="mt-4 flex flex-col sm:flex-row gap-4 w-full justify-center">
+            <Link 
+              href="/business/signup"
+              className="min-w-[200px] px-8 py-3.5 bg-[#6366F1] text-white font-bold text-base md:text-lg rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all transform hover:-translate-y-1"
+            >
+              Hire a Creator
+            </Link>
+            
+            <Link 
+              href="/creator/signup"
+              className="min-w-[200px] px-8 py-3.5 bg-[#10B981] text-white font-bold text-base md:text-lg rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-600 hover:shadow-emerald-300 transition-all transform hover:-translate-y-1"
+            >
+              Join as a Creator
+            </Link>
+          </div>
+
         </div>
       </main>
+
+      {/* --- FOOTER --- */}
+      {/* pb-6 ensures it sits nicely at the bottom */}
+      <footer className="w-full py-6 text-center text-xs sm:text-sm font-medium text-slate-400 relative z-10 shrink-0">
+        <p>© 2026 Caskayd Enterprises. All rights reserved.</p>
+      </footer>
+
     </div>
   );
 }
