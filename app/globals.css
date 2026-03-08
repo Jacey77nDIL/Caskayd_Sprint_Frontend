@@ -26,5 +26,5 @@ html, body {
   font-family: Arial, Helvetica, sans-serif;
   
   /* This physically prevents the mobile browser from pulling past the top/bottom */
-  overscroll-behavior-y: none; 
+   
 }
