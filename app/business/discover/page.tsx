@@ -256,37 +256,40 @@ const CreatorDetailsModal = ({ isOpen, onClose, creator, onInvite }: { isOpen: b
                 </div>
 
                 {/* --- DESKTOP VIEW: HORIZONTAL WHITE SPLIT (Visible only on md+ screens) --- */}
-                <div className="hidden md:flex w-full items-stretch gap-10">
+                <div className="hidden md:flex w-full items-stretch gap-12">
                     
                     {/* Left: Huge Image */}
-                    <div className="w-1/2 relative rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 shadow-inner min-h-[450px]">
-                        <Image 
-                            src={creator.profileImageUrl || placeholderImg} 
-                            alt={creator.displayName || "Creator"} 
-                            fill 
-                            className="object-cover"
-                        />
+                    <div className="w-[45%] relative rounded-[2rem] overflow-hidden bg-gray-100 shrink-0 shadow-inner min-h-[450px]">
+                        {creator.profileImageUrl ? (
+                            <Image 
+                                src={creator.profileImageUrl} 
+                                alt={creator.displayName || "Creator"} 
+                                fill 
+                                className="object-cover"
+                            />
+                        ) : (
+                            <Image 
+                                src={placeholderImg} 
+                                alt={creator.displayName || "Creator"} 
+                                fill 
+                                className="object-cover"
+                            />
+                        )}
                     </div>
 
                     {/* Right: Details & Actions */}
-                    <div className="w-1/2 flex flex-col justify-center py-4">
+                    <div className="flex-1 flex flex-col py-2">
                         
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-2">
-                                <h2 className="text-4xl font-extrabold text-slate-900">{creator.displayName || "Unknown Creator"}</h2>
+                        <div className="mb-8 pr-10">
+                            <div className="flex items-center gap-2 mb-1">
+                                <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight">{creator.displayName || "Unknown Creator"}</h2>
                                 <CheckBadgeIcon className="w-8 h-8 text-emerald-500 shrink-0" />
                             </div>
-                            
-                            {creator.location && (
-                                <p className="text-gray-500 font-medium flex items-center gap-1.5">
-                                    <MapPinIcon className="w-5 h-5"/> {creator.location}
-                                </p>
-                            )}
                         </div>
 
                         {/* Bio Section */}
-                        <div className="mb-8">
-                            <h3 className="text-xl font-bold text-slate-900 mb-3">Bio</h3>
+                        <div className="mb-6">
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Bio</h3>
                             <p className="text-gray-600 leading-relaxed text-[15px]">
                                 {creator.bio ? creator.bio : "No bio provided."}
                             </p>
@@ -311,7 +314,7 @@ const CreatorDetailsModal = ({ isOpen, onClose, creator, onInvite }: { isOpen: b
                             <span className="text-3xl font-extrabold text-slate-900">{price}</span>
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Action Buttons - Pushed to bottom */}
                         <div className="flex flex-col gap-4 mt-auto">
                             
                             {/* Social Links Row */}
@@ -319,24 +322,24 @@ const CreatorDetailsModal = ({ isOpen, onClose, creator, onInvite }: { isOpen: b
                                 <button 
                                     onClick={() => handleSocialClick(igLink)} 
                                     disabled={!igLink} 
-                                    className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-[15px] disabled:opacity-40 disabled:cursor-not-allowed bg-linear-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white hover:shadow-lg hover:shadow-pink-200 transition-all cursor-pointer"
+                                    className="flex-1 py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-[15px] disabled:opacity-40 disabled:cursor-not-allowed bg-linear-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white hover:shadow-lg hover:shadow-pink-200 transition-all cursor-pointer"
                                 >
-                                    View Instagram Profile <ArrowTopRightOnSquareIcon className="w-5 h-5 opacity-80" />
+                                    View Instagram Profile <ArrowTopRightOnSquareIcon className="w-4 h-4 opacity-80" />
                                 </button>
                                 
                                 <button 
                                     onClick={() => handleSocialClick(tkLink)} 
                                     disabled={!tkLink} 
-                                    className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 font-bold text-[15px] disabled:opacity-40 disabled:cursor-not-allowed bg-black text-white hover:shadow-lg hover:shadow-gray-300 transition-all cursor-pointer"
+                                    className="flex-1 py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-[15px] disabled:opacity-40 disabled:cursor-not-allowed bg-gray-500 hover:bg-gray-600 text-white transition-colors cursor-pointer"
                                 >
-                                    View TikTok Profile <ArrowTopRightOnSquareIcon className="w-5 h-5 opacity-80" />
+                                    View TikTok Profile <ArrowTopRightOnSquareIcon className="w-4 h-4 opacity-80" />
                                 </button>
                             </div>
 
                             {/* Invite Button */}
                             <button 
                                 onClick={() => { onClose(); onInvite(creator); }}
-                                className="w-full bg-gray-100 hover:bg-gray-200 text-slate-900 font-extrabold py-4 rounded-2xl transition-colors active:scale-[0.98] cursor-pointer text-lg mt-2"
+                                className="w-full bg-gray-50 hover:bg-gray-100 text-slate-900 font-extrabold py-4 rounded-xl transition-colors active:scale-[0.98] cursor-pointer text-lg mt-1 border border-gray-200"
                             >
                                 Invite To Campaign +
                             </button>
@@ -487,9 +490,6 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
                 endDate: formData.endDate
             };
             
-            // --- CONSOLE ADDED HERE ---
-            console.log("🔵 [API Request] POST /chat-requests PAYLOAD:", payload);
-
             const res = await fetch(`${BASE_URL}/chat-requests`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
@@ -497,21 +497,13 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
             });
 
             if (!res.ok) {
-                // --- CONSOLE ADDED HERE ---
-                const errorText = await res.text();
-                console.error("🔴 [API Error] POST /chat-requests FAILED:", errorText);
                 throw new Error("Failed to send request");
             }
             
-            // --- CONSOLE ADDED HERE ---
-            console.log("🟢 [API Response] POST /chat-requests SUCCESS");
-
             onShowToast("Request Sent Successfully!", "success");
             onClose();
 
         } catch (error: any) {
-            // --- CONSOLE ADDED HERE ---
-            console.error("🔴 [Network Error] POST /chat-requests crashed:", error);
             onShowToast(error.message || "Something went wrong.", "error");
         } finally {
             setIsSubmitting(false);
@@ -594,6 +586,9 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
 export default function DiscoverPage() {
   const router = useRouter();
   
+  // --- ADDED STATE FOR SEARCH QUERY ---
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [selectedInviteCreator, setSelectedInviteCreator] = useState<CreatorProfile | null>(null);
   
@@ -618,23 +613,16 @@ export default function DiscoverPage() {
           try {
               const params = new URLSearchParams();
               if (filters.niche) params.append("niche", filters.niche.toLowerCase());
-              if (filters.price) params.append("maxPrice", filters.price); 
               
-              // --- CONSOLE ADDED HERE ---
-              console.log(`🔵 [API Request] GET /creator?${params.toString()}`);
-
+              // We removed maxPrice from the API call because we are filtering price locally now
+              
               const res = await fetch(`${BASE_URL}/creator?${params.toString()}`, {
                   headers: { "Authorization": `Bearer ${localStorage.getItem("accessToken")}` }
               });
                
               if (res.ok) {
                   const data = await res.json();
-                  // --- CONSOLE ADDED HERE ---
-                  console.log("🟢 [API Response] GET /creator SUCCESS:", data);
                   setCreators(data); 
-              } else {
-                  // --- CONSOLE ADDED HERE ---
-                  console.error("🔴 [API Error] GET /creator FAILED:", await res.text());
               }
           } catch (error) {
               console.error("🔴 [Network Error] GET /creator crashed:", error);
@@ -643,7 +631,7 @@ export default function DiscoverPage() {
           }
       };
       fetchCreators();
-  }, [filters]);
+  }, [filters.niche]); // Only refetch when niche changes, handle price/search locally
 
   const handleFilterSelect = (type: string, value: string) => {
       setFilters(prev => ({ ...prev, [type]: value }));
@@ -658,6 +646,50 @@ export default function DiscoverPage() {
       setSelectedDetailsCreator(creator);
       setIsDetailsModalOpen(true);
   };
+
+
+  // --- ADDED: REAL-TIME FRONTEND FILTERING LOGIC ---
+  const displayedCreators = creators.filter((creator) => {
+      
+      // 1. Relaxed Real-Time Search Filter
+      let matchesSearch = true;
+      if (searchQuery) {
+          // Normalize function: converts to lowercase and strips spaces, @, _, and -
+          const normalize = (str: string) => (str || "").toLowerCase().replace(/[@_\-\s]/g, "");
+          const query = normalize(searchQuery);
+
+          // Check Display Name
+          const name = normalize(creator.displayName || "");
+          
+          // Check Handles from Links
+          const extractHandle = (url: string) => {
+              if (!url) return "";
+              let clean = url.replace(/(^\w+:|^)\/\//, '').replace("www.", "");
+              clean = clean.replace("instagram.com/", "").replace("tiktok.com/", "").replace(/\/$/, '');
+              return normalize(clean);
+          };
+
+          const igHandle = extractHandle(creator.links?.instagram || creator.instagram || "");
+          const tkHandle = extractHandle(creator.links?.tiktok || creator.tiktok || "");
+
+          matchesSearch = name.includes(query) || igHandle.includes(query) || tkHandle.includes(query);
+      }
+
+      // 2. Local Price Filter (using pricePerPost)
+      let matchesPrice = true;
+      if (filters.price) {
+          const priceVal = Number(filters.price);
+          const creatorPrice = Number(creator.pricePerPost) || 0;
+          
+          if (priceVal === 500001) { // 500k+ selected
+              matchesPrice = creatorPrice >= 500000;
+          } else { // 50k, 100k, 500k selected
+              matchesPrice = creatorPrice <= priceVal;
+          }
+      }
+
+      return matchesSearch && matchesPrice;
+  });
 
   return (
     <div className={`flex flex-col min-h-screen bg-[#F8F9FB] ${inter.className} overflow-x-hidden`}>
@@ -694,7 +726,9 @@ export default function DiscoverPage() {
                 <div className="w-full max-w-lg relative group">
                     <input 
                         type="text" 
-                        placeholder="Search here" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search creators by name or handle..." 
                         className="w-full bg-white rounded-full py-4 pl-8 pr-4 shadow-sm border border-gray-100 text-center text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-100 transition-shadow" 
                     />
                 </div>
@@ -747,9 +781,9 @@ export default function DiscoverPage() {
                             </div>
                         ))}
                     </div>
-                ) : creators.length > 0 ? (
+                ) : displayedCreators.length > 0 ? ( // CHANGED TO USE FILTERED LIST
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {creators.map((creator: CreatorProfile, idx: number) => (
+                        {displayedCreators.map((creator: CreatorProfile, idx: number) => (
                             <CreatorCard 
                                 key={creator.id || Math.random()} 
                                 creator={creator} 
@@ -763,7 +797,7 @@ export default function DiscoverPage() {
                     <div className="text-center py-20 text-gray-400">
                         <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
                         <p className="text-lg font-medium text-gray-500">No creators found</p>
-                        <p className="text-sm">Try adjusting your filters</p>
+                        <p className="text-sm">Try adjusting your filters or search term</p>
                     </div>
                 )}
             </div>
