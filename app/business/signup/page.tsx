@@ -297,7 +297,7 @@ export default function BusinessSignup() {
         const businessPayload = {
             companyName: formData.businessName, 
             websiteUrl: formData.website, 
-            category: formData.industryTags.join(", "),
+            category: formData.industryTags,
             profileImageUrl: uploadedLogoUrl || null, 
             location: formData.location 
         };

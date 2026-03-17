@@ -407,7 +407,7 @@ export default function CreatorSignup() {
         const creatorPayload = {
             displayName: formData.username,
             bio: formData.bio,
-            niches: formData.nicheTags.join(", "), // Niches mapping
+            niches: formData.nicheTags, // Niches mapping
             location: formData.location,
             tiktok: formData.tiktok,
             instagram: formData.instagram,

@@ -540,7 +540,7 @@ export default function LandingPage() {
                     </div>
                     
                     <div className="text-center text-gray-400 text-xs mt-12">
-                        © 2024 Copyright Caskaya. All rights reserved.
+                        © 2026 Copyright Caskaya. All rights reserved.
                     </div>
                 </div>
             </footer>
