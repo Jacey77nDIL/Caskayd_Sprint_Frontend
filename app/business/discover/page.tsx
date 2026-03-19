@@ -352,20 +352,22 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // Removed 'title' from formData
     const [formData, setFormData] = useState({
-        title: "", description: "", startDate: "", endDate: "", budget: ""
+        description: "", startDate: "", endDate: "", budget: ""
     });
 
     useEffect(() => {
         if(isOpen) {
             setStep(1);
-            setFormData({ title: "", description: "", startDate: "", endDate: "", budget: "" });
+            setFormData({ description: "", startDate: "", endDate: "", budget: "" });
             setIsSubmitting(false);
         }
     }, [isOpen]);
 
     const handleNext = () => {
-        if (!formData.title || !formData.startDate || !formData.endDate) {
+        // Removed 'title' validation
+        if (!formData.startDate || !formData.endDate) {
             onShowToast("Please fill in all fields before proceeding.", "error");
             return;
         }
@@ -382,9 +384,9 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
             const token = localStorage.getItem("accessToken");
             if (!token) { onShowToast("You are not logged in.", "error"); return; }
 
+            // Removed 'title' from payload
             const payload = {
                 creatorId: creator?.userId, 
-                title: formData.title,
                 message: formData.description,
                 proposedPrice: Number(formData.budget),
                 startDate: formData.startDate,
@@ -421,7 +423,7 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
 
     if (!isOpen || !creator) return null;
 
-    return (
+return (
         <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
             <div onClick={(e) => e.stopPropagation()} className="w-[95%] max-w-md bg-white rounded-4xl p-6 md:p-8 shadow-2xl relative animate-in zoom-in-95 duration-300 text-gray-900 overflow-y-auto max-h-[90vh]">
                 <button aria-label="close" onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
@@ -433,10 +435,8 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
                         <div className="space-y-6 mt-2">
                             <h2 className="text-center text-lg font-bold text-gray-900">Send Request</h2>
                             <div className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Ad title</label>
-                                    <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full mt-1 border-b border-gray-200 py-3 text-lg font-medium focus:outline-none focus:border-black transition-colors placeholder-gray-300" placeholder="e.g. Summer Launch" />
-                                </div>
+                                {/* Removed Ad Title Input Field entirely */}
+                                
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Start Date</label>
@@ -444,7 +444,7 @@ const InviteModal = ({ isOpen, onClose, creator, onShowToast }: { isOpen: boolea
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">End Date</label>
-                                        <input aria-label="input-end-date"type="date" value={formData.endDate} onChange={(e) => setFormData({...formData, endDate: e.target.value})} className="w-full mt-1 bg-gray-50 rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-black cursor-pointer" />
+                                        <input aria-label="input-end-date" type="date" value={formData.endDate} onChange={(e) => setFormData({...formData, endDate: e.target.value})} className="w-full mt-1 bg-gray-50 rounded-xl py-3 px-4 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-black cursor-pointer" />
                                     </div>
                                 </div>
                             </div>

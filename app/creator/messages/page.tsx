@@ -41,6 +41,7 @@ interface Conversation {
     conversationId: string;
     userId: string;
     avatar: string | null;
+    displayName: string;
 }
 
 interface Message {
@@ -207,8 +208,8 @@ export default function CreatorMessagesPage() {
 
     // Helpers
     const getBusinessName = (conv?: Conversation) => {
-        if (!conv || !conv.userId) return "Business";
-        return `User ${conv.userId.substring(0, 4)}`; 
+        if (!conv) return "Business";
+        return conv.displayName || `User ${conv.userId.substring(0, 4)}`; 
     };
 
     const getInitial = (nameFallback?: string) => {

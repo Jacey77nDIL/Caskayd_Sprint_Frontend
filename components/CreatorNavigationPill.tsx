@@ -52,6 +52,7 @@ export default function CreatorNavigationPill() {
 
         const fetchUserProfile = async () => {
             try {
+                // Log the API request
                 console.log("🔵 [API Request] GET /users/profile");
                 const profileRes = await fetch(`${BASE_URL}/users/profile`, {
                     headers: { "Authorization": `Bearer ${token}` }
@@ -59,6 +60,7 @@ export default function CreatorNavigationPill() {
                 
                 if (profileRes.ok) {
                     const profileData = await profileRes.json();
+                    // Log the API response success
                     console.log("🟢 [API Response] GET /users/profile SUCCESS:", profileData);
                     
                     if (Array.isArray(profileData) && profileData.length > 0) {
@@ -68,50 +70,60 @@ export default function CreatorNavigationPill() {
                         setUserProfile(profileData);
                     }
                 } else {
+                    // Log the API response failure
                     console.error("🔴 [API Error] GET /users/profile FAILED:", await profileRes.text());
                 }
             } catch (error) {
+                // Log network errors
                 console.error("🔴 [Network Error] GET /users/profile crashed:", error);
             }
         };
 
         const fetchAlerts = async () => {
             try {
+                // Log unread message count request
                 console.log("🔵 [API Request] GET /messages/unread/count");
                 const msgRes = await fetch(`${BASE_URL}/messages/unread/count`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 if (msgRes.ok) {
                     const msgCount = await msgRes.text(); 
+                    // Log unread message count response
                     console.log("🟢 [API Response] GET /messages/unread/count SUCCESS:", msgCount);
                     setUnreadMessages(Number(msgCount) || 0);
                 } else {
+                    // Log unread message count failure
                     console.error("🔴 [API Error] GET /messages/unread/count FAILED:", await msgRes.text());
                 }
             } catch (error) {
+                // Log network errors
                 console.error("🔴 [Network Error] GET /messages/unread/count crashed:", error);
             }
 
             try {
+                // Log notifications request
                 console.log("🔵 [API Request] GET /notifications");
                 const notifRes = await fetch(`${BASE_URL}/notifications`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 if (notifRes.ok) {
                     const notifData = await notifRes.json();
+                    // Log notifications response
                     console.log("🟢 [API Response] GET /notifications SUCCESS:", notifData);
                     setNotifications(notifData);
                 } else {
+                    // Log notifications failure
                     console.error("🔴 [API Error] GET /notifications FAILED:", await notifRes.text());
                 }
             } catch (error) {
+                // Log network errors
                 console.error("🔴 [Network Error] GET /notifications crashed:", error);
             }
         };
 
         fetchUserProfile(); 
         fetchAlerts();      
-        const interval = setInterval(fetchAlerts, 15000); 
+        const interval = setInterval(fetchAlerts, 15000); // Polling unread alerts
         return () => clearInterval(interval);
     }, []);
 
@@ -124,6 +136,7 @@ export default function CreatorNavigationPill() {
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
 
         try {
+            // Log mark as read request
             console.log(`🔵 [API Request] PATCH /notifications/${id}/read`);
             const res = await fetch(`${BASE_URL}/notifications/${id}/read`, {
                 method: "PATCH",
@@ -131,12 +144,15 @@ export default function CreatorNavigationPill() {
             });
 
             if (res.ok) {
+                // Log mark as read response
                 console.log(`🟢 [API Response] PATCH /notifications/${id}/read SUCCESS`);
             } else {
+                // Log mark as read failure
                 console.error(`🔴 [API Error] PATCH /notifications/${id}/read FAILED:`, await res.text());
                 setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: false } : n));
             }
         } catch (error) {
+            // Log network errors
             console.error(`🔴 [Network Error] PATCH /notifications/${id}/read crashed:`, error);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: false } : n));
         }
@@ -157,6 +173,7 @@ export default function CreatorNavigationPill() {
         formData.append("file", file);
 
         try {
+            // Log avatar upload request
             console.log("🔵 [API Request] PATCH /users/me/avatar");
             const res = await fetch(`${BASE_URL}/users/me/avatar`, {
                 method: "PATCH",
@@ -166,6 +183,7 @@ export default function CreatorNavigationPill() {
 
             if (res.ok) {
                 const data = await res.json();
+                // Log avatar upload response
                 console.log("🟢 [API Response] PATCH /users/me/avatar SUCCESS", data);
                 
                 toast.success("Profile image updated successfully!", { id: loadingToastId });
@@ -174,10 +192,12 @@ export default function CreatorNavigationPill() {
                 setUserProfile(prev => prev ? { ...prev, avatar: newAvatarUrl } : null);
             } else {
                 const errorData = await res.json().catch(() => null);
+                // Log avatar upload failure
                 console.error("🔴 [API Error] PATCH /users/me/avatar FAILED:", errorData);
                 toast.error(`Failed to update: ${errorData?.message || "Bad Request"}`, { id: loadingToastId });
             }
         } catch (error) {
+            // Log network errors
             console.error("🔴 [Network Error] PATCH /users/me/avatar crashed:", error);
             toast.error("Network error. Please try again later.", { id: loadingToastId });
         } finally {
@@ -194,23 +214,32 @@ export default function CreatorNavigationPill() {
             <div className="fixed top-0 left-0 right-0 z-40 w-full px-4 md:px-8 pt-6 pb-4 bg-white/70 backdrop-blur-md border-b border-white/10 transition-all">
                 <div className="max-w-5xl mx-auto">
                     
-                    <div className="bg-white rounded-full shadow-lg shadow-gray-200/50 border border-gray-100 py-4 px-6 md:px-8 flex items-center justify-between relative">
+                    {/* Main Nav Container - tighter spacing on mobile */}
+                    <div className="bg-white rounded-full shadow-lg shadow-gray-200/50 border border-gray-100 py-4 px-6 md:px-8 flex items-center justify-between relative gap-2 sm:gap-4">
                         
                         <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                            <div className="relative w-10 h-10 shrink-0">
+                            {/* Full logo for sm screens and up */}
+                            <div className="relative w-40 h-10 shrink-0 hidden sm:block">
                                 <Image 
-                                    src="/images/Logo_transparent_icon.png" 
+                                    src="/images/LandingLogo.png" 
                                     alt="Caskayd" 
                                     fill
-                                    className="object-contain"
+                                    className="object-cover"
                                 />
                             </div>
-                            <span className="font-extrabold text-2xl tracking-tight hidden sm:block text-slate-900">
-                                Caskayd
-                            </span>
+                            {/* Small icon logo for mobile */}
+                            <div className="relative w-8 h-8 shrink-0 sm:hidden">
+                                <Image 
+                                    src="/images/Logo_transparent_icon.png" 
+                                    alt="Caskayd Icon" 
+                                    fill
+                                    className="object-cover"
+                                />
+                            </div>
                         </div>
 
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-8 sm:gap-10">
+                        {/* Central Pill Nav - reduced mobile gaps, better arranging/alignment */}
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6 sm:gap-10">
                             <Link href="/creator/dashboard" className="group">
                                 <div className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${isActive('/creator/dashboard') ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-900'}`}>
                                     <div className="flex items-center gap-2 font-bold p-1">
@@ -232,7 +261,7 @@ export default function CreatorNavigationPill() {
                             </Link>
                             
                             <Link href="/creator/messages" className="group">
-                                <div className={`flex flex-col items-center gap-1 cursor-pointer transition-colors relative ${isActive('/creator/messages') ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-900'}`}>
+                                <div className={`flex flex-col items-center gap-1 cursor-pointer relative ${isActive('/creator/messages') ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-900'}`}>
                                     <div className="flex items-center gap-2 font-bold p-1 relative">
                                         <ChatBubbleOvalLeftIcon className="w-6 h-6 sm:w-5 sm:h-5" />
                                         <span className="hidden sm:block text-[15px]">Messages</span>
@@ -247,7 +276,8 @@ export default function CreatorNavigationPill() {
                             </Link>
                         </div>
 
-                        <div className="flex items-center gap-4 md:gap-5 shrink-0 relative">
+                        {/* Right Section Icons - proper alignment and spacing */}
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0 relative">
                             <button 
                                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                                 className="relative p-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 cursor-pointer"
@@ -299,15 +329,18 @@ export default function CreatorNavigationPill() {
                                 </>
                             )}
 
+                            {/* Updated Profile Button - inner padding for better fit/isolated image */}
                             <button 
                                 onClick={() => setIsProfileOpen(true)}
-                                className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-black text-white flex items-center justify-center font-bold text-sm cursor-pointer hover:bg-gray-800 transition-colors shadow-md relative overflow-hidden"
+                                className="w-10 h-10 md:w-11 md:h-11 rounded-full   flex items-center justify-center font-bold text-sm cursor-pointer  transition-colors shadow-md relative overflow-hidden"
                             >
-                                {userProfile?.avatar ? (
-                                    <Image src={userProfile.avatar} alt="Profile" fill className="object-cover" />
-                                ) : (
-                                    <span>{initial}</span>
-                                )}
+                                <div className="absolute inset-[2px] rounded-full flex items-center justify-center overflow-hidden">
+                                    {userProfile?.avatar ? (
+                                        <Image src={userProfile.avatar} alt="Profile" fill className="object-cover rounded-full" />
+                                    ) : (
+                                        <span className="text-white font-bold">{initial}</span>
+                                    )}
+                                </div>
                             </button>
                         </div>
                     </div>
@@ -327,7 +360,7 @@ export default function CreatorNavigationPill() {
 
                         <div className="flex flex-col items-center mt-4 relative z-0">
                             
-                            {/* Updated Profile Avatar with side-badge camera icon */}
+                            {/* Modal Avatar Container */}
                             <div className="relative mb-4 group cursor-pointer">
                                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center overflow-hidden relative border border-gray-700">
                                     {userProfile?.avatar ? (
@@ -337,7 +370,7 @@ export default function CreatorNavigationPill() {
                                     )}
                                 </div>
                                 
-                                {/* White floating camera badge positioned bottom-right */}
+                                {/* Avatar Camera Icon Badge */}
                                 <label className="absolute bottom-0 right-0 bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:bg-gray-100 transition-colors border border-gray-200">
                                     {isUploadingAvatar ? (
                                         <div className="w-4 h-4 border-2 border-gray-800 border-t-transparent rounded-full animate-spin"></div>
