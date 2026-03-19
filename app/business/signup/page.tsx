@@ -254,7 +254,7 @@ export default function BusinessSignup() {
     setIsLoading(true);
 
     try {
-        const profilePayload = { displayName: formData.username };
+        const profilePayload = { companyName: formData.username };
         console.log("🔵 [API Request] PATCH /users/profile PAYLOAD:", profilePayload);
 
         const profileUpdateRes = await fetch(`${BASE_URL}/users/profile`, {
@@ -297,7 +297,7 @@ export default function BusinessSignup() {
         const businessPayload = {
             companyName: formData.businessName, 
             websiteUrl: formData.website, 
-            category: formData.industryTags,
+            category: formData.industryTags.join(", "),
             profileImageUrl: uploadedLogoUrl || null, 
             location: formData.location 
         };
