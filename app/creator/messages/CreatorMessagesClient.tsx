@@ -94,6 +94,9 @@ export default function CreatorMessagesClient() {
     
     const [newMessage, setNewMessage] = useState("");
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+    // ADDED BACK: The missing toast state!
+    const [toast, setToast] = useState({ message: "", type: "success" as "success"|"error", isVisible: false });
     
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -339,6 +342,8 @@ export default function CreatorMessagesClient() {
         <div className={`h-screen w-full flex flex-col bg-[#F8F9FB] ${inter.className} overflow-hidden`}>
             
             <CreatorNavigationPill />
+            
+            <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={() => setToast(prev => ({...prev, isVisible: false}))} />
 
             <main className="flex-1 flex flex-col min-h-0 w-full max-w-[90rem] mx-auto px-4 md:px-8 pb-10 md:pb-6 pt-[140px] md:pt-[120px]">
                 
@@ -496,7 +501,6 @@ export default function CreatorMessagesClient() {
                                                         : "bg-[#F3F4F6] text-gray-900 rounded-2xl rounded-bl-none"
                                                     }`}>
                                                         
-                                                        {/* --- UPDATED RENDER LOGIC FOR CONTENT TYPES --- */}
                                                         {msg.type === "IMAGE" && msg.fileUrl && (
                                                             <div className="relative w-48 h-48 rounded-lg overflow-hidden border border-white/20 mb-2">
                                                                 <Image src={msg.fileUrl} alt={msg.fileName || "Uploaded image"} fill className="object-cover" />

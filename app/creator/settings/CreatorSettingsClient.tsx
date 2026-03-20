@@ -100,7 +100,7 @@ export default function CreatorSettingsClient() {
             };
 
             console.log("🔵 [API Request] PATCH /users/profile PAYLOAD:", payload);
-            const res = await fetch(`${BASE_URL}/users/profile`, {
+            const res = await fetch(`${BASE_URL}/users/creator/profile`, {
                 method: "PATCH",
                 headers: { 
                     "Content-Type": "application/json",
