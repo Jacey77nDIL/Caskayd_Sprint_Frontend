@@ -9,9 +9,10 @@ import {
   EyeIcon, 
   EyeSlashIcon, 
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  XMarkIcon // Added icon to close the modal
 } from "@heroicons/react/24/outline";
-import Loader from "@/components/Loader"; // IMPORT LOADER
+import Loader from "@/components/Loader"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,12 +44,23 @@ export default function CreatorLoginClient() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false); // LOADER STATE
+  const [isRedirecting, setIsRedirecting] = useState(false); 
   const [toast, setToast] = useState({ message: "", type: "success" as "success" | "error", isVisible: false });
+
+  // Keep track of our forgot password modal states
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<1 | 2>(1);
+  const [forgotPasswordData, setForgotPasswordData] = useState({ email: "", code: "", newPassword: "" });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle inputs for the forgot password modal
+  const handleForgotDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -58,7 +70,6 @@ export default function CreatorLoginClient() {
     setIsLoading(true);
     
     try {
-        // Logging the request and payload per Rule #3
         console.log("🔵 [API Request] POST /auth/login PAYLOAD:", { email: formData.email, password: "***" });
 
         const response = await fetch(`${BASE_URL}/auth/login`, {
@@ -70,12 +81,10 @@ export default function CreatorLoginClient() {
         const data = await response.json();
 
         if (!response.ok) {
-            // Logging the error response
             console.error("🔴 [API Error] POST /auth/login FAILED:", data);
             throw new Error(data.message || "Invalid credentials");
         }
 
-        // Logging the successful response
         console.log("🟢 [API Response] POST /auth/login SUCCESS:", data);
 
         const token = data.access_token || data.token;
@@ -83,7 +92,7 @@ export default function CreatorLoginClient() {
             localStorage.setItem("accessToken", token);
             setToast({ message: "Welcome back!", type: "success", isVisible: true });
             
-            setIsRedirecting(true); // START LOADER
+            setIsRedirecting(true); 
             await new Promise(resolve => setTimeout(resolve, 2000));
             router.push("/creator/dashboard");
         } else {
@@ -91,14 +100,91 @@ export default function CreatorLoginClient() {
         }
 
     } catch (error: any) {
-        // Catch-all log for network or unexpected errors
         console.error("🔴 Login Process Error:", error);
         setToast({ message: error.message || "Login failed", type: "error", isVisible: true });
         setIsLoading(false);
     }
   };
 
-  // SEO: Structured data for the login page
+  // Fire off the email to get the reset code
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordData.email) return setToast({ message: "Please enter your email", type: "error", isVisible: true });
+
+    setIsLoading(true);
+    try {
+        const payload = { email: forgotPasswordData.email };
+        console.log("🔵 [API Request] POST /auth/forgot-password PAYLOAD:", payload);
+
+        const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            console.error("🔴 [API Error] POST /auth/forgot-password FAILED:", data || res.statusText);
+            throw new Error(data.message || "Failed to send reset email.");
+        }
+
+        console.log("🟢 [API Response] POST /auth/forgot-password SUCCESS:", data);
+        setToast({ message: "Reset code sent to your email", type: "success", isVisible: true });
+        
+        // Move to the code verification step
+        setForgotPasswordStep(2);
+    } catch (error: any) {
+        setToast({ message: error.message || "Error requesting reset", type: "error", isVisible: true });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  // Submit the new password with the code
+  const handleSubmitNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordData.code || !forgotPasswordData.newPassword) return setToast({ message: "Please fill all fields", type: "error", isVisible: true });
+
+    setIsLoading(true);
+    try {
+        const payload = { 
+            email: forgotPasswordData.email, 
+            code: forgotPasswordData.code, 
+            newPassword: forgotPasswordData.newPassword 
+        };
+        console.log("🔵 [API Request] POST /auth/reset-password PAYLOAD:", payload);
+
+        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            console.error("🔴 [API Error] POST /auth/reset-password FAILED:", data || res.statusText);
+            throw new Error(data.message || "Failed to reset password.");
+        }
+
+        console.log("🟢 [API Response] POST /auth/reset-password SUCCESS:", data);
+        setToast({ message: "Password reset successfully!", type: "success", isVisible: true });
+        
+        // Close modal and clean up
+        setTimeout(() => {
+            setShowForgotPasswordModal(false);
+            setForgotPasswordStep(1);
+            setForgotPasswordData({ email: "", code: "", newPassword: "" });
+        }, 1500);
+
+    } catch (error: any) {
+        setToast({ message: error.message || "Error resetting password", type: "error", isVisible: true });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -107,12 +193,10 @@ export default function CreatorLoginClient() {
     "url": "https://www.caskayd.com/creator/login"
   };
 
-  // USE SHARED LOADER
   if (isRedirecting) return <Loader />;
 
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-white ${inter.className} overflow-hidden`}>
-      {/* Inject Structured Data into the DOM */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -120,8 +204,47 @@ export default function CreatorLoginClient() {
 
       <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} />
 
+      {/* --- FORGOT PASSWORD MODAL --- */}
+      {showForgotPasswordModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in">
+            <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
+                <button aria-label="Close modal" onClick={() => setShowForgotPasswordModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-black cursor-pointer">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Reset Password</h2>
+                
+                {forgotPasswordStep === 1 ? (
+                    <form onSubmit={handleRequestPasswordReset}>
+                        <p className="text-gray-600 mb-6 text-sm">Enter your email address and we'll send you a recovery code.</p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                            <input type="email" name="email" value={forgotPasswordData.email} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 py-3 px-2 focus:outline-none text-black focus:border-emerald-500" placeholder="user@example.com" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-md disabled:opacity-50 mt-4 cursor-pointer">
+                            {isLoading ? "Sending..." : "Send Reset Code"}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleSubmitNewPassword}>
+                        <p className="text-gray-600 mb-6 text-sm">Check your email for the code and enter a new password below.</p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Recovery Code</label>
+                            <input type="text" name="code" value={forgotPasswordData.code} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 text-black py-3 px-2 focus:outline-none focus:border-emerald-500" placeholder="123456" />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                            <input type="password" name="newPassword" value={forgotPasswordData.newPassword} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 text-black py-3 px-2 focus:outline-none focus:border-emerald-500" placeholder="Enter new password" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-md disabled:opacity-50 cursor-pointer">
+                            {isLoading ? "Resetting..." : "Save New Password"}
+                        </button>
+                    </form>
+                )}
+            </div>
+        </div>
+      )}
+
       <div className="hidden md:block w-1/2 bg-[#EEEDEE] relative overflow-hidden">
-        {/* Converted to .webp */}
         <Image src="/images/creator-image.webp" alt="Monetize Illustration" fill className="object-contain" priority />
       </div>
 
@@ -129,10 +252,8 @@ export default function CreatorLoginClient() {
         <div className="max-w-md w-full relative">
           
           <div className="text-center flex flex-col items-center mb-10">
-            {/* SEO Fix: Added a visually hidden H1 tag for Google bots */}
             <h1 className="sr-only">Log in to your Caskayd Creator Account</h1>
             <div className="relative w-48 h-16 md:w-40 md:h-12 mb-6"> 
-                {/* Converted to .webp */}
                 <Image 
                     src="/images/Logo_transparent_icon.webp" 
                     alt="Caskayd" 
@@ -142,7 +263,6 @@ export default function CreatorLoginClient() {
                     unoptimized
                 /> 
             </div>
-            {/* Changed from p to h2 for semantic hierarchy under the hidden h1 */}
             <h2 className="text-sm text-gray-600 font-medium">Welcome Back!</h2>
           </div>
 
@@ -152,7 +272,13 @@ export default function CreatorLoginClient() {
                 <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your email" />
             </div>
             <div className="relative">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-semibold text-gray-700">Password</label>
+                    {/* The trigger to open our new modal */}
+                    <button type="button" onClick={() => setShowForgotPasswordModal(true)} className="text-xs text-emerald-600 hover:text-emerald-800 transition-colors cursor-pointer">
+                        Forgot Password?
+                    </button>
+                </div>
                 <div className="relative">
                     <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full border-b border-gray-300 py-3 px-2 pr-10 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 transition-all text-gray-900 placeholder-gray-400 rounded-t-md" placeholder="Enter your password" />
                     <button aria-label="show-password" type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-3 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer">{showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}</button>

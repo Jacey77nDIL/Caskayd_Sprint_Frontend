@@ -103,6 +103,14 @@ export default function CreatorSignupClient() {
     instagram: "", tiktok: "", accountNumber: "", bankName: "", bankCode: ""
   });
 
+  // Keep track of the OTP code
+  const [otpCode, setOtpCode] = useState("");
+
+  // Keep track of our forgot password modal states
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<1 | 2>(1);
+  const [forgotPasswordData, setForgotPasswordData] = useState({ email: "", code: "", newPassword: "" });
+
   const [showPassword, setShowPassword] = useState(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -154,6 +162,11 @@ export default function CreatorSignupClient() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleForgotDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForgotPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,7 +252,8 @@ export default function CreatorSignupClient() {
           } else {
               showSuccess("Logged in successfully! Resuming setup...");
               await delay(600);
-              setStep(2);
+              // Jump to profile info step
+              setStep(3);
           }
 
       } catch (error) {
@@ -290,33 +304,10 @@ export default function CreatorSignupClient() {
             }
             
             console.log("🟢 [API Response] POST /auth/signup SUCCESS:", signupData);
-            showSuccess("Account created successfully!");
-            await delay(500);
-
-            const loginPayload = { email: formData.email, password: formData.password };
-            console.log("🔵 [API Request] POST /auth/login PAYLOAD:", loginPayload);
-            
-            const loginRes = await fetch(`${BASE_URL}/auth/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(loginPayload),
-            });
-
-            if (!loginRes.ok) {
-                const errorData = await loginRes.json().catch(() => null);
-                console.error("🔴 [API Error] POST /auth/login FAILED:", errorData || loginRes.statusText);
-                throw new Error("Auto-login failed. Please try logging in manually.");
-            }
-            
-            const loginData = await loginRes.json();
-            const token = loginData.access_token || loginData.token;
-            
-            console.log("🟢 [API Response] POST /auth/login SUCCESS:", loginData);
-            localStorage.setItem("accessToken", token);
-            
-            showSuccess("Authentication secured. Moving to Step 2...");
+            showSuccess("Account created! Sending OTP...");
             await delay(600);
-            
+
+            // Move to OTP step instead of auto-logging in
             setStep(2);
 
         } catch (error: any) {
@@ -326,7 +317,8 @@ export default function CreatorSignupClient() {
         }
 
     } 
-    else if (step === 2) {
+    // This used to be step 2, now it is step 3
+    else if (step === 3) {
         if (!formData.profilePic) return showError("Please upload a profile photo to continue."); 
         if (formData.nicheTags.length === 0) return showError("Please select at least one niche.");
         if (!formData.bio) return showError("Please tell us a bit about yourself.");
@@ -336,7 +328,128 @@ export default function CreatorSignupClient() {
         if (!formData.pricePerStory) return showError("Please enter your price per story.");
         if (!formData.pricePerVideo) return showError("Please enter your price per video.");
         
+        setStep(4);
+    }
+  };
+
+  // Verify the OTP code
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otpCode) return showError("Please enter the verification code.");
+
+    setIsLoading(true);
+
+    try {
+        const verifyPayload = {
+            email: formData.email,
+            password: formData.password,
+            role: "creator",
+            code: otpCode
+        };
+        console.log("🔵 [API Request] POST /auth/verify-signup PAYLOAD:", verifyPayload);
+
+        const verifyRes = await fetch(`${BASE_URL}/auth/verify-signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(verifyPayload),
+        });
+
+        const verifyData = await verifyRes.json();
+
+        if (!verifyRes.ok) {
+            console.error("🔴 [API Error] POST /auth/verify-signup FAILED:", verifyData);
+            throw new Error(verifyData.message || "Invalid OTP code.");
+        }
+
+        console.log("🟢 [API Response] POST /auth/verify-signup SUCCESS:", verifyData);
+        
+        const token = verifyData.access_token || verifyData.token;
+        if (token) localStorage.setItem("accessToken", token);
+
+        showSuccess("Email verified! Let's build your profile.");
+        await delay(600);
+        
+        // Move to the Profile Data step
         setStep(3);
+    } catch (error: any) {
+        showError(error.message || "OTP verification failed.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  // Send the forgot password reset code
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordData.email) return showError("Please enter your email.");
+
+    setIsLoading(true);
+    try {
+        const payload = { email: forgotPasswordData.email };
+        console.log("🔵 [API Request] POST /auth/forgot-password PAYLOAD:", payload);
+
+        const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            console.error("🔴 [API Error] POST /auth/forgot-password FAILED:", data || res.statusText);
+            throw new Error(data.message || "Failed to send reset email.");
+        }
+
+        console.log("🟢 [API Response] POST /auth/forgot-password SUCCESS:", data);
+        showSuccess("Password reset code sent to your email.");
+        setForgotPasswordStep(2);
+    } catch (error: any) {
+        showError(error.message || "Error requesting password reset.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  // Submit the reset code and new password
+  const handleSubmitNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotPasswordData.code || !forgotPasswordData.newPassword) return showError("Please fill all fields.");
+
+    setIsLoading(true);
+    try {
+        const payload = { 
+            email: forgotPasswordData.email, 
+            code: forgotPasswordData.code, 
+            newPassword: forgotPasswordData.newPassword 
+        };
+        console.log("🔵 [API Request] POST /auth/reset-password PAYLOAD:", payload);
+
+        const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            console.error("🔴 [API Error] POST /auth/reset-password FAILED:", data || res.statusText);
+            throw new Error(data.message || "Failed to reset password.");
+        }
+
+        console.log("🟢 [API Response] POST /auth/reset-password SUCCESS:", data);
+        showSuccess("Password reset successfully! You can now log in.");
+        
+        await delay(1500);
+        setShowForgotPasswordModal(false);
+        setForgotPasswordStep(1);
+        setShowEmailExistsModal(false);
+        router.push("/creator/login");
+    } catch (error: any) {
+        showError(error.message || "Error resetting password.");
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -380,7 +493,7 @@ export default function CreatorSignupClient() {
             console.warn("🟠 [API Warning] PATCH /users/creator/profile FAILED:", errorData || profileUpdateRes.statusText);
         }
 
-        // 2. UPLOAD PROFILE PICTURE (UPDATED LOGIC)
+        // 2. UPLOAD PROFILE PICTURE
         let uploadedProfilePicUrl = null;
         if (formData.profilePic) {
             console.log("🔵 [API Request] POST /upload/avatar (Uploading file...)");
@@ -388,7 +501,7 @@ export default function CreatorSignupClient() {
             uploadData.append("file", formData.profilePic);
 
             const uploadRes = await fetch(`${BASE_URL}/upload/avatar`, {
-                method: "POST", // Changed to POST
+                method: "POST", 
                 headers: { "Authorization": `Bearer ${token}` },
                 body: uploadData 
             });
@@ -396,7 +509,7 @@ export default function CreatorSignupClient() {
             if (uploadRes.ok) {
                 const uploadResult = await uploadRes.json();
                 console.log("🟢 [API Response] POST /upload/avatar SUCCESS:", uploadResult);
-                uploadedProfilePicUrl = uploadResult.url; // Use 'url' from new endpoint
+                uploadedProfilePicUrl = uploadResult.url; 
             } else {
                 const errorData = await uploadRes.json().catch(() => null);
                 console.error("🔴 [API Error] POST /upload/avatar FAILED:", errorData || uploadRes.statusText);
@@ -404,7 +517,7 @@ export default function CreatorSignupClient() {
             }
         }
 
-        // 3. CREATE CREATOR PROFILE (UPDATED PAYLOAD)
+        // 3. CREATE CREATOR PROFILE
         const creatorPayload = {
             displayName: formData.displayName,
             bio: formData.bio,
@@ -413,7 +526,6 @@ export default function CreatorSignupClient() {
             tiktok: formData.tiktok,
             instagram: formData.instagram,
             pricePerPost: Number(formData.pricePerPost),
-            // Removed profileImageUrl here as requested
         };
         
         console.log("🔵 [API Request] POST /creator PAYLOAD:", JSON.stringify(creatorPayload, null, 2));
@@ -517,6 +629,46 @@ export default function CreatorSignupClient() {
       />
       
       <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={() => setToast(prev => ({ ...prev, isVisible: false }))} />
+
+      {/* --- FORGOT PASSWORD MODAL --- */}
+      {showForgotPasswordModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in">
+            <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative">
+                <button aria-label="Close modal" onClick={() => setShowForgotPasswordModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-black cursor-pointer">
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Reset Password</h2>
+                
+                {forgotPasswordStep === 1 ? (
+                    <form onSubmit={handleRequestPasswordReset}>
+                        <p className="text-gray-600 mb-6 text-sm">Enter your email address and we'll send you a recovery code.</p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                            <input type="email" name="email" value={forgotPasswordData.email} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 py-3 px-2 focus:outline-none focus:border-emerald-500" placeholder="user@example.com" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-md disabled:opacity-50 mt-4 cursor-pointer">
+                            {isLoading ? "Sending..." : "Send Reset Code"}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleSubmitNewPassword}>
+                        <p className="text-gray-600 mb-6 text-sm">Check your email for the code and enter a new password below.</p>
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Recovery Code</label>
+                            <input type="text" name="code" value={forgotPasswordData.code} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 py-3 px-2 focus:outline-none focus:border-emerald-500" placeholder="123456" />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                            <input type="password" name="newPassword" value={forgotPasswordData.newPassword} onChange={handleForgotDataChange} className="w-full border-b border-gray-300 py-3 px-2 focus:outline-none focus:border-emerald-500" placeholder="Enter new password" />
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-600 transition-colors shadow-md disabled:opacity-50 cursor-pointer">
+                            {isLoading ? "Resetting..." : "Save New Password"}
+                        </button>
+                    </form>
+                )}
+            </div>
+        </div>
+      )}
       
       {/* --- EMAIL EXISTS MODAL --- */}
       {showEmailExistsModal && (
@@ -544,10 +696,20 @@ export default function CreatorSignupClient() {
                     >
                         {isLoading && recoveryAction === "signup" ? "Checking..." : "Resume Profile Setup"}
                     </button>
+                    {/* Add our new forgot password trigger */}
+                    <button 
+                        onClick={() => {
+                            setForgotPasswordData({ ...forgotPasswordData, email: formData.email });
+                            setShowForgotPasswordModal(true);
+                        }}
+                        className="w-full text-emerald-600 font-semibold py-2 rounded-xl hover:text-emerald-800 transition-colors mt-2 cursor-pointer"
+                    >
+                        Forgot Password?
+                    </button>
                     <button 
                         onClick={() => setShowEmailExistsModal(false)}
                         disabled={isLoading}
-                        className="w-full text-gray-500 font-semibold py-3 rounded-xl hover:text-gray-800 transition-colors mt-2 cursor-pointer"
+                        className="w-full text-gray-500 font-semibold py-2 rounded-xl hover:text-gray-800 transition-colors cursor-pointer"
                     >
                         Cancel
                     </button>
@@ -586,7 +748,8 @@ export default function CreatorSignupClient() {
                 />
             </div>
             <div className="flex justify-center gap-2 mt-2">
-                {[1, 2, 3].map(i => (
+                {/* Updated to 4 steps */}
+                {[1, 2, 3, 4].map(i => (
                     <div key={i} className={`h-1.5 w-8 rounded-full transition-colors ${step >= i ? 'bg-emerald-500' : 'bg-gray-200'}`}></div>
                 ))}
             </div>
@@ -594,7 +757,7 @@ export default function CreatorSignupClient() {
 
           <div className="relative w-full overflow-hidden min-h-[600px]">
             
-            {/* STEP 1 */}
+            {/* STEP 1 - ACCOUNT CREATION */}
             <div className={`absolute inset-0 flex flex-col justify-center w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(1)}`}>
                 <form onSubmit={handleNextStep} className="space-y-8 px-1">
                     <div className="relative">
@@ -612,7 +775,6 @@ export default function CreatorSignupClient() {
                     </div>
                     <div className="text-right"><Link href="/creator/login" className="text-xs text-blue-600 hover:underline">Or pick up from where you left</Link></div>
                     
-                    {/* NEW: Mandatory Terms and Conditions Checkbox */}
                     <div className="flex items-start gap-3 mt-4">
                         <div className="flex items-center h-5">
                             <input 
@@ -637,8 +799,41 @@ export default function CreatorSignupClient() {
                 </form>
             </div>
 
-            {/* STEP 2 */}
+            {/* STEP 2 - OTP VERIFICATION */}
             <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(2)}`}>
+                <form onSubmit={handleVerifyOtp} className="space-y-6 px-1 pb-4 flex flex-col justify-center h-full pt-10">
+                    <div className="text-center mb-6">
+                        <h2 className="text-2xl font-bold text-gray-900">Verify Your Email</h2>
+                        <p className="text-sm text-gray-500 mt-2">We sent a verification code to <span className="font-semibold">{formData.email}</span></p>
+                    </div>
+                    
+                    <div className="relative">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">OTP Code</label>
+                        <input 
+                            type="text" 
+                            value={otpCode} 
+                            onChange={(e) => setOtpCode(e.target.value)} 
+                            className="w-full border-b border-gray-300 py-3 px-2 bg-white/50 md:bg-transparent focus:outline-none focus:border-emerald-500 transition-all text-gray-900 placeholder-gray-400 rounded-t-md text-center text-xl tracking-widest font-mono" 
+                            placeholder="------" 
+                            maxLength={6}
+                        />
+                    </div>
+
+                    <div className="pt-4">
+                        <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                            {isLoading ? "Verifying..." : "Verify Code"}
+                        </button>
+                    </div>
+                    <div className="text-center mt-2">
+                        <button type="button" onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-emerald-600 transition-colors cursor-pointer">
+                            Back to Signup
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* STEP 3 - PROFILE DATA */}
+            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(3)}`}>
                 <form onSubmit={handleNextStep} className="space-y-5 px-1">
                     <div className="flex flex-col items-center justify-center mb-2">
                         <div className="relative w-24 h-24 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:bg-slate-800 transition-all group overflow-hidden border-4 border-white shadow-lg">
@@ -699,8 +894,8 @@ export default function CreatorSignupClient() {
                 </form>
             </div>
 
-            {/* STEP 3 */}
-            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(3)}`}>
+            {/* STEP 4 - PRICING AND BANKING */}
+            <div className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out transform ${getAnimationClass(4)}`}>
                 <form onSubmit={handleFinalSubmit} className="space-y-6 px-1">
                     <div className="relative">
                         <label className="block text-sm font-semibold text-gray-700 mb-2">Display Name</label>
@@ -739,7 +934,7 @@ export default function CreatorSignupClient() {
                         <button type="submit" disabled={isLoading} className="w-full bg-emerald-500 text-white font-semibold py-4 rounded-xl hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200 transform hover:-translate-y-0.5 flex justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             {isLoading ? "Creating Profile..." : "Get Started"}
                         </button>
-                        <button type="button" disabled={isLoading} onClick={() => setStep(2)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2 cursor-pointer disabled:opacity-50">Go Back</button>
+                        <button type="button" disabled={isLoading} onClick={() => setStep(3)} className="w-full text-center text-sm text-gray-500 hover:text-gray-800 py-2 cursor-pointer disabled:opacity-50">Go Back</button>
                     </div>
                 </form>
             </div>
