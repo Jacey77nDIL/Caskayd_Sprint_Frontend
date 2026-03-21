@@ -39,15 +39,13 @@ export default function CreatorSettingsClient() {
         instagram: "", tiktok: "", pricePerPost: ""
     });
 
-    // Password State
-    const [passwordData, setPasswordData] = useState({
-        currentPassword: "", newPassword: "", confirmPassword: ""
-    });
+    // New states for the OTP-based reset flow
+    const [resetStep, setResetStep] = useState<1 | 2>(1);
+    const [resetData, setResetData] = useState({ email: "", code: "", newPassword: "" });
 
     const showToast = (message: string, type: "success"|"error") => setToast({ message, type, isVisible: true });
 
     // --- FETCH INITIAL PROFILE DATA ---
-    // Added so the form isn't blank when the user opens the settings page
     useEffect(() => {
         const fetchProfile = async () => {
             const token = localStorage.getItem("accessToken");
@@ -99,7 +97,7 @@ export default function CreatorSettingsClient() {
                 pricePerPost: profileData.pricePerPost ? Number(profileData.pricePerPost) : undefined
             };
 
-            console.log("🔵 [API Request] PATCH /users/profile PAYLOAD:", payload);
+            console.log("🔵 [API Request] PATCH /users/creator/profile PAYLOAD:", payload);
             const res = await fetch(`${BASE_URL}/users/creator/profile`, {
                 method: "PATCH",
                 headers: { 
@@ -111,11 +109,11 @@ export default function CreatorSettingsClient() {
 
             if (res.ok) {
                 const data = await res.json().catch(() => ({}));
-                console.log("🟢 [API Response] PATCH /users/profile SUCCESS:", data);
+                console.log("🟢 [API Response] PATCH /users/creator/profile SUCCESS:", data);
                 showToast("Profile updated successfully", "success");
             } else {
                 const err = await res.json().catch(() => null);
-                console.error("🔴 [API Error] PATCH /users/profile FAILED:", err || res.statusText);
+                console.error("🔴 [API Error] PATCH /users/creator/profile FAILED:", err || res.statusText);
                 showToast(err?.message || "Failed to update profile", "error");
             }
         } catch (error) {
@@ -126,46 +124,72 @@ export default function CreatorSettingsClient() {
         }
     };
 
-    // --- SUBMIT PASSWORD CHANGE ---
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
+    // Trigger the forgot password email
+    const handleRequestPasswordReset = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
-            return showToast("New passwords do not match", "error");
-        }
-
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
+        if (!resetData.email) return showToast("Please enter your email", "error");
 
         setIsLoading(true);
         try {
-            const payload = {
-                currentPassword: passwordData.currentPassword,
-                newPassword: passwordData.newPassword
-            };
+            const payload = { email: resetData.email };
+            console.log("🔵 [API Request] POST /auth/forgot-password PAYLOAD:", payload);
 
-            console.log("🔵 [API Request] PATCH /users/password PAYLOAD:", { ...payload, currentPassword: "***", newPassword: "***" });
-            const res = await fetch(`${BASE_URL}/users/password`, {
-                method: "PATCH",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` 
-                },
+            const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
+            const data = await res.json().catch(() => ({}));
+
             if (res.ok) {
-                const data = await res.json().catch(() => ({}));
-                console.log("🟢 [API Response] PATCH /users/password SUCCESS:", data);
-                showToast("Password changed successfully", "success");
-                setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                console.log("🟢 [API Response] POST /auth/forgot-password SUCCESS:", data);
+                showToast("Reset code sent to your email!", "success");
+                setResetStep(2); // Move to the verification step
             } else {
-                const err = await res.json().catch(() => null);
-                console.error("🔴 [API Error] PATCH /users/password FAILED:", err || res.statusText);
-                showToast(err?.message || "Failed to change password", "error");
+                console.error("🔴 [API Error] POST /auth/forgot-password FAILED:", data || res.statusText);
+                showToast(data.message || "Failed to send reset email.", "error");
             }
         } catch (error) {
-            console.error("🔴 [Network Error]:", error);
-            showToast("Network error occurred", "error");
+            console.error("🔴 [Network Error] Forgot password crashed:", error);
+            showToast("Network error. Please try again.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Submit the code and new password
+    const handleSubmitNewPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!resetData.code || !resetData.newPassword) return showToast("Please fill all fields", "error");
+
+        setIsLoading(true);
+        try {
+            const payload = { email: resetData.email, code: resetData.code, newPassword: resetData.newPassword };
+            console.log("🔵 [API Request] POST /auth/reset-password PAYLOAD:", payload);
+
+            const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+                console.log("🟢 [API Response] POST /auth/reset-password SUCCESS:", data);
+                showToast("Password updated successfully!", "success");
+                
+                // Clean up state
+                setResetStep(1);
+                setResetData({ email: "", code: "", newPassword: "" });
+            } else {
+                console.error("🔴 [API Error] POST /auth/reset-password FAILED:", data || res.statusText);
+                showToast(data.message || "Failed to update password.", "error");
+            }
+        } catch (error) {
+            console.error("🔴 [Network Error] Reset password crashed:", error);
+            showToast("Network error. Please try again.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -173,7 +197,6 @@ export default function CreatorSettingsClient() {
 
     // --- DELETE ACCOUNT ---
     const handleDeleteAccount = async () => {
-        // UI Polish: Added safety confirmation
         const confirmDelete = window.confirm("Are you sure you want to delete your account? This action cannot be undone.");
         if (!confirmDelete) return;
 
@@ -206,7 +229,6 @@ export default function CreatorSettingsClient() {
         }
     };
 
-    // SEO: Structured data for the Profile Page
     const structuredData = {
         "@context": "https://schema.org",
         "@type": "ProfilePage",
@@ -217,7 +239,6 @@ export default function CreatorSettingsClient() {
 
     return (
         <div className={`min-h-screen bg-[#F8F9FB] flex flex-col ${inter.className}`}>
-            {/* Inject Structured Data into the DOM */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -228,16 +249,13 @@ export default function CreatorSettingsClient() {
 
             <main className="flex-1 w-full max-w-[90rem] mx-auto px-4 md:px-8 pb-20 pt-[140px] md:pt-[160px] flex flex-col md:flex-row gap-8 items-start">
                 
-                {/* SEO Fix: Added H1 */}
                 <h1 className="sr-only">Creator Account Settings</h1>
 
                 {/* Sidebar / Tabs */}
                 <div className="w-full md:w-64 bg-white rounded-3xl p-4 shadow-sm border border-gray-100 shrink-0">
-                    {/* SEO Fix: Changed to h2 */}
                     <h2 className="text-xl font-bold text-gray-900 mb-6 px-4 pt-2">Settings</h2>
                     
                     <div className="flex flex-row md:flex-col gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                        {/* UI Polish: Changed active theme colors from Indigo to Emerald to match Creator Side */}
                         <button 
                             onClick={() => setActiveTab("profile")}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
@@ -267,12 +285,10 @@ export default function CreatorSettingsClient() {
                 </div>
 
                 {/* Main Content Area */}
-                {/* UI Polish: Added max-w-3xl */}
                 <div className="flex-1 w-full max-w-3xl bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-gray-100 min-h-[500px]">
                     
                     {activeTab === "profile" && (
                         <form onSubmit={handleProfileSubmit} className="animate-in fade-in duration-300 space-y-6">
-                            {/* SEO Fix: Changed to h2 */}
                             <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Profile Information</h2>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -308,7 +324,6 @@ export default function CreatorSettingsClient() {
                             </div>
 
                             <div className="pt-6">
-                                {/* UI Polish: Changed to Emerald to match Creator Theme */}
                                 <button type="submit" disabled={isLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 px-8 rounded-xl shadow-md disabled:opacity-50 transition-all active:scale-95 cursor-pointer">
                                     {isLoading ? "Saving..." : "Save Changes"}
                                 </button>
@@ -316,35 +331,50 @@ export default function CreatorSettingsClient() {
                         </form>
                     )}
 
+                    {/* --- REWORKED SECURITY TAB --- */}
                     {activeTab === "security" && (
-                        <form onSubmit={handlePasswordSubmit} className="max-w-md animate-in fade-in duration-300 space-y-6">
-                            {/* SEO Fix: Changed to h2 */}
-                            <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Change Password</h2>
+                        <div className="animate-in fade-in duration-300">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Reset Password</h2>
                             
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Current Password</label>
-                                <input type="password" required value={passwordData.currentPassword} onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} className="w-full bg-[#F8F9FB] border border-gray-200 text-gray-900 rounded-xl py-3.5 px-4 focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all" placeholder="••••••••" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
-                                <input type="password" required minLength={6} value={passwordData.newPassword} onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} className="w-full bg-[#F8F9FB] border border-gray-200 text-gray-900 rounded-xl py-3.5 px-4 focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all" placeholder="••••••••" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm New Password</label>
-                                <input type="password" required minLength={6} value={passwordData.confirmPassword} onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} className="w-full bg-[#F8F9FB] border border-gray-200 text-gray-900 rounded-xl py-3.5 px-4 focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 outline-none transition-all" placeholder="••••••••" />
-                            </div>
-
-                            <div className="pt-6">
-                                <button type="submit" disabled={isLoading || !passwordData.newPassword} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 px-8 rounded-xl shadow-md disabled:opacity-50 transition-all active:scale-95 cursor-pointer">
-                                    {isLoading ? "Updating..." : "Update Password"}
-                                </button>
-                            </div>
-                        </form>
+                            {resetStep === 1 ? (
+                                <form onSubmit={handleRequestPasswordReset} className="space-y-6 max-w-md">
+                                    <p className="text-sm text-gray-600 mb-2">Enter your account email address. We will send you a verification code to reset your password.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                                        <input type="email" required value={resetData.email} onChange={(e) => setResetData({ ...resetData, email: e.target.value })} placeholder="user@example.com" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div className="pt-2">
+                                        <button type="submit" disabled={isLoading || !resetData.email} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer w-full md:w-auto">
+                                            {isLoading ? "Sending..." : "Send Reset Code"}
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleSubmitNewPassword} className="space-y-6 max-w-md">
+                                    <p className="text-sm text-gray-600 mb-2">Check your email for the verification code and set your new password below.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Recovery Code</label>
+                                        <input type="text" required value={resetData.code} onChange={(e) => setResetData({ ...resetData, code: e.target.value })} placeholder="123456" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                                        <input type="password" required minLength={6} value={resetData.newPassword} onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })} placeholder="••••••••" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div className="pt-2 flex items-center gap-4">
+                                        <button type="submit" disabled={isLoading || !resetData.code || !resetData.newPassword} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex-1">
+                                            {isLoading ? "Updating..." : "Update Password"}
+                                        </button>
+                                        <button type="button" onClick={() => setResetStep(1)} className="py-3.5 px-6 font-semibold text-gray-500 hover:text-gray-800 transition-colors cursor-pointer">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
                     )}
 
                     {activeTab === "danger" && (
                         <div className="animate-in fade-in duration-300">
-                            {/* SEO Fix: Changed to h2 */}
                             <h2 className="text-2xl font-bold mb-6 text-red-600 border-b border-red-100 pb-4">Danger Zone</h2>
                             <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
                                 <h3 className="text-lg font-bold text-red-900 mb-2">Delete Account</h3>

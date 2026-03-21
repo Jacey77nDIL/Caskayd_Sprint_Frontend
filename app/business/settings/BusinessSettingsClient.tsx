@@ -37,10 +37,10 @@ export default function BusinessSettingsClient() {
         websiteUrl: "",
         category: ""
     });
-    const [passwordData, setPasswordData] = useState({
-        currentPassword: "",
-        newPassword: ""
-    });
+    
+    // New states for the OTP-based reset flow in settings
+    const [resetStep, setResetStep] = useState<1 | 2>(1);
+    const [resetData, setResetData] = useState({ email: "", code: "", newPassword: "" });
 
     const showToast = (message: string, type: "success" | "error") => setToast({ message, type, isVisible: true });
 
@@ -88,7 +88,7 @@ export default function BusinessSettingsClient() {
 
         setIsSaving(true);
         try {
-            console.log("🔵 [API Request] PATCH /user/business/profile PAYLOAD:", generalData);
+            console.log("🔵 [API Request] PATCH /users/business/profile PAYLOAD:", generalData);
             const res = await fetch(`${BASE_URL}/users/business/profile`, {
                 method: "PATCH",
                 headers: {
@@ -100,11 +100,11 @@ export default function BusinessSettingsClient() {
 
             if (res.ok) {
                 const data = await res.json();
-                console.log("🟢 [API Response] PATCH /user/business/profile SUCCESS:", data);
+                console.log("🟢 [API Response] PATCH /users/business/profile SUCCESS:", data);
                 showToast("Profile updated successfully!", "success");
             } else {
                 const err = await res.json().catch(() => null);
-                console.error("🔴 [API Error] PATCH /user/business/profile FAILED:", err || res.statusText);
+                console.error("🔴 [API Error] PATCH /users/business/profile FAILED:", err || res.statusText);
                 showToast(err?.message || "Failed to update profile.", "error");
             }
         } catch (error) {
@@ -115,35 +115,71 @@ export default function BusinessSettingsClient() {
         }
     };
 
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
+    // Trigger the forgot password email
+    const handleRequestPasswordReset = async (e: React.FormEvent) => {
         e.preventDefault();
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
+        if (!resetData.email) return showToast("Please enter your email", "error");
 
         setIsSaving(true);
         try {
-            console.log("🔵 [API Request] PATCH /users/password PAYLOAD:", { ...passwordData, newPassword: "***" });
-            const res = await fetch(`${BASE_URL}/users/password`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(passwordData)
+            const payload = { email: resetData.email };
+            console.log("🔵 [API Request] POST /auth/forgot-password PAYLOAD:", payload);
+
+            const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
             });
 
+            const data = await res.json().catch(() => ({}));
+
             if (res.ok) {
-                const data = await res.json();
-                console.log("🟢 [API Response] PATCH /users/password SUCCESS:", data);
-                showToast("Password changed successfully!", "success");
-                setPasswordData({ currentPassword: "", newPassword: "" });
+                console.log("🟢 [API Response] POST /auth/forgot-password SUCCESS:", data);
+                showToast("Reset code sent to your email!", "success");
+                setResetStep(2); // Move to code entry step
             } else {
-                const err = await res.json().catch(() => null);
-                console.error("🔴 [API Error] PATCH /users/password FAILED:", err || res.statusText);
-                showToast(err?.message || "Failed to change password.", "error");
+                console.error("🔴 [API Error] POST /auth/forgot-password FAILED:", data || res.statusText);
+                showToast(data.message || "Failed to send reset email.", "error");
             }
         } catch (error) {
-            console.error("🔴 [Network Error] Password update crashed:", error);
+            console.error("🔴 [Network Error] Forgot password crashed:", error);
+            showToast("Network error. Please try again.", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Submit the code and new password
+    const handleSubmitNewPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!resetData.code || !resetData.newPassword) return showToast("Please fill all fields", "error");
+
+        setIsSaving(true);
+        try {
+            const payload = { email: resetData.email, code: resetData.code, newPassword: resetData.newPassword };
+            console.log("🔵 [API Request] POST /auth/reset-password PAYLOAD:", payload);
+
+            const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+                console.log("🟢 [API Response] POST /auth/reset-password SUCCESS:", data);
+                showToast("Password updated successfully!", "success");
+                
+                // Clean up and go back to step 1
+                setResetStep(1);
+                setResetData({ email: "", code: "", newPassword: "" });
+            } else {
+                console.error("🔴 [API Error] POST /auth/reset-password FAILED:", data || res.statusText);
+                showToast(data.message || "Failed to update password.", "error");
+            }
+        } catch (error) {
+            console.error("🔴 [Network Error] Reset password crashed:", error);
             showToast("Network error. Please try again.", "error");
         } finally {
             setIsSaving(false);
@@ -151,7 +187,6 @@ export default function BusinessSettingsClient() {
     };
 
     const handleDeleteAccount = async () => {
-        // UI Polish: Added a confirmation dialog before deleting
         const confirmDelete = window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.");
         if (!confirmDelete) return;
 
@@ -184,7 +219,6 @@ export default function BusinessSettingsClient() {
         }
     };
 
-    // SEO: Structured data for the Profile Page
     const structuredData = {
         "@context": "https://schema.org",
         "@type": "ProfilePage",
@@ -195,7 +229,6 @@ export default function BusinessSettingsClient() {
 
     return (
         <div className="min-h-screen bg-[#F8F9FB] font-sans">
-            {/* Inject Structured Data into the DOM */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
@@ -206,7 +239,6 @@ export default function BusinessSettingsClient() {
 
             <main className="max-w-[90rem] mx-auto px-4 md:px-8 pb-20 pt-[140px] md:pt-[160px] flex flex-col md:flex-row gap-8 items-start">
                 
-                {/* SEO Fix: Added H1 */}
                 <h1 className="sr-only">Business Settings</h1>
 
                 {/* --- SIDEBAR --- */}
@@ -227,7 +259,7 @@ export default function BusinessSettingsClient() {
                             <KeyIcon className="w-5 h-5" />
                             Security
                         </button>
-                        <div className="h-px bg-gray-100 my-2 w-full"></div> {/* UI Polish: Divider for danger zone */}
+                        <div className="h-px bg-gray-100 my-2 w-full"></div> 
                         <button
                             onClick={() => setActiveTab("danger")}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors cursor-pointer ${activeTab === "danger" ? "bg-red-50 text-red-600" : "text-gray-500 hover:bg-red-50 hover:text-red-600"}`}
@@ -239,12 +271,10 @@ export default function BusinessSettingsClient() {
                 </div>
 
                 {/* --- MAIN CONTENT AREA --- */}
-                {/* UI Polish: Added max-w-3xl so forms don't stretch infinitely on wide monitors */}
                 <div className="flex-1 w-full max-w-3xl bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-gray-100 min-h-[500px]">
 
                     {activeTab === "general" && (
                         <div className="animate-in fade-in duration-300">
-                            {/* SEO Fix: Changed to h2 */}
                             <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Profile Information</h2>
                             <form onSubmit={handleGeneralSubmit} className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -274,27 +304,50 @@ export default function BusinessSettingsClient() {
                         </div>
                     )}
 
+                    {/* --- REWORKED SECURITY TAB --- */}
                     {activeTab === "security" && (
                         <div className="animate-in fade-in duration-300">
-                            {/* SEO Fix: Changed to h2 */}
-                            <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Change Password</h2>
-                            <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
-                                    <input type="password" required minLength={6} value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} placeholder="••••••••" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
-                                </div>
-                                <div className="pt-2">
-                                    <button type="submit" disabled={isSaving || !passwordData.newPassword} className="bg-[#5B4DFF] hover:bg-indigo-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer">
-                                        {isSaving ? "Updating..." : "Update Password"}
-                                    </button>
-                                </div>
-                            </form>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-8 border-b border-gray-100 pb-4">Reset Password</h2>
+                            
+                            {resetStep === 1 ? (
+                                <form onSubmit={handleRequestPasswordReset} className="space-y-6 max-w-md">
+                                    <p className="text-sm text-gray-600 mb-2">Enter your account email address. We will send you a verification code to reset your password.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                                        <input type="email" required value={resetData.email} onChange={(e) => setResetData({ ...resetData, email: e.target.value })} placeholder="user@example.com" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div className="pt-2">
+                                        <button type="submit" disabled={isSaving || !resetData.email} className="bg-[#5B4DFF] hover:bg-indigo-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer w-full md:w-auto">
+                                            {isSaving ? "Sending..." : "Send Reset Code"}
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleSubmitNewPassword} className="space-y-6 max-w-md">
+                                    <p className="text-sm text-gray-600 mb-2">Check your email for the verification code and set your new password below.</p>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Recovery Code</label>
+                                        <input type="text" required value={resetData.code} onChange={(e) => setResetData({ ...resetData, code: e.target.value })} placeholder="123456" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                                        <input type="password" required minLength={6} value={resetData.newPassword} onChange={(e) => setResetData({ ...resetData, newPassword: e.target.value })} placeholder="••••••••" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
+                                    </div>
+                                    <div className="pt-2 flex items-center gap-4">
+                                        <button type="submit" disabled={isSaving || !resetData.code || !resetData.newPassword} className="bg-[#5B4DFF] hover:bg-indigo-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer flex-1">
+                                            {isSaving ? "Updating..." : "Update Password"}
+                                        </button>
+                                        <button type="button" onClick={() => setResetStep(1)} className="py-3.5 px-6 font-semibold text-gray-500 hover:text-gray-800 transition-colors cursor-pointer">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </div>
                     )}
 
                     {activeTab === "danger" && (
                         <div className="animate-in fade-in duration-300">
-                            {/* SEO Fix: Changed to h2 */}
                             <h2 className="text-2xl font-bold mb-6 text-red-600 border-b border-red-100 pb-4">Danger Zone</h2>
                             <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
                                 <h3 className="text-lg font-bold text-red-900 mb-2">Delete Account</h3>

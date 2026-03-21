@@ -196,7 +196,6 @@ export default function NavigationPill() {
         }
     };
 
-    // --- UPDATED: Avatar Upload Process ---
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -212,7 +211,7 @@ export default function NavigationPill() {
         try {
             console.log("🔵 [API Request] POST /upload/avatar");
             const res = await fetch(`${BASE_URL}/upload/avatar`, {
-                method: "POST", // Changed to POST
+                method: "POST",
                 headers: { "Authorization": `Bearer ${token}` },
                 body: formData, 
             });
@@ -223,7 +222,6 @@ export default function NavigationPill() {
                 
                 showToast("Profile image updated successfully!", "success");
                 
-                // Extracting URL from new response structure
                 const newAvatarUrl = data.url || URL.createObjectURL(file);
                 setUserProfile(prev => prev ? { ...prev, avatar: newAvatarUrl } : null);
             } else {
@@ -236,7 +234,7 @@ export default function NavigationPill() {
             showToast("Network error. Please try again later.", "error");
         } finally {
             setIsUploadingAvatar(false);
-            event.target.value = ""; // Reset input
+            event.target.value = ""; 
         }
     };
 
@@ -258,12 +256,11 @@ export default function NavigationPill() {
             <div className="fixed top-0 left-0 right-0 z-40 w-full px-4 md:px-8 pt-6 pb-4 bg-white/70 backdrop-blur-md border-b border-white/10 transition-all">
                 <div className="max-w-5xl mx-auto">
                     
-                    {/* Main Nav Container - tighter spacing on mobile for equal alignment */}
+                    {/* Main Nav Container */}
                     <div className="bg-white rounded-full shadow-lg shadow-gray-200/50 border border-gray-100 py-3 md:py-4 px-4 sm:px-6 md:px-8 flex items-center justify-between relative gap-1 sm:gap-4">
                         
                         {/* Responsive Logo Container */}
                         <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                            {/* Full logo for sm screens and up */}
                             <div className="relative w-40 h-10 shrink-0 hidden sm:block">
                                 <Image 
                                     src="/images/LandingLogo.png" 
@@ -272,7 +269,6 @@ export default function NavigationPill() {
                                     className="object-cover"
                                 />
                             </div>
-                            {/* Small icon logo for mobile */}
                             <div className="relative w-8 h-8 shrink-0 sm:hidden">
                                 <Image 
                                     src="/images/Logo_transparent_icon.png" 
@@ -283,7 +279,7 @@ export default function NavigationPill() {
                             </div>
                         </div>
 
-                        {/* Central Pill Menu - Flex-1 perfectly centers on mobile */}
+                        {/* Central Pill Menu */}
                         <div className="flex flex-1 justify-center items-center gap-4 sm:gap-6 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
                             <Link href="/business/discover" className="group">
                                 <div className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${isActive('/business/discover') ? 'text-emerald-600' : 'text-gray-400 hover:text-gray-900'}`}>
@@ -291,7 +287,6 @@ export default function NavigationPill() {
                                         <MapIcon className="w-6 h-6 sm:w-5 sm:h-5" /> 
                                         <span className="hidden sm:block text-[15px]">Discover</span>
                                     </div>
-                                    {/* Hidden on mobile to keep icons leveled */}
                                     <div className={`hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-500 transition-opacity ${isActive('/business/discover') ? 'opacity-100' : 'opacity-0'}`}></div>
                                 </div>
                             </Link>
@@ -307,7 +302,6 @@ export default function NavigationPill() {
                                             </span>
                                         )}
                                     </div>
-                                    {/* Hidden on mobile to keep icons leveled */}
                                     <div className={`hidden sm:block w-1.5 h-1.5 rounded-full bg-emerald-500 transition-opacity ${isActive('/business/messages') ? 'opacity-100' : 'opacity-0'}`}></div>
                                 </div>
                             </Link>
@@ -335,18 +329,56 @@ export default function NavigationPill() {
                                 )}
                             </div>
 
-                            {/* Notifications Button */}
-                            <button 
-                                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                                className="relative p-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 cursor-pointer"
-                            >
-                                <BellIcon className="w-6 h-6 sm:w-7 sm:h-7" /> 
-                                {unreadNotificationCount > 0 && (
-                                    <span className="absolute top-1 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
-                                        {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                                    </span>
+                            {/* Notifications Button & Dropdown UI */}
+                            <div className="relative flex items-center">
+                                <button 
+                                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                                    className="relative p-2 text-gray-500 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 cursor-pointer"
+                                >
+                                    <BellIcon className="w-6 h-6 sm:w-7 sm:h-7" /> 
+                                    {unreadNotificationCount > 0 && (
+                                        <span className="absolute top-1 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                                            {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                                        </span>
+                                    )}
+                                </button>
+
+                                {/* Added the missing Dropdown UI for notifications */}
+                                {isNotificationsOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsNotificationsOpen(false)}></div>
+                                        <div className="absolute top-14 right-0 md:-right-10 w-[300px] sm:w-80 bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[400px]">
+                                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                                <h3 className="font-bold text-gray-900">Notifications</h3>
+                                                {unreadNotificationCount > 0 && (
+                                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full uppercase tracking-wider">
+                                                        {unreadNotificationCount} New
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-1">
+                                                {notifications.length === 0 ? (
+                                                    <div className="p-8 text-center text-gray-400 text-sm">You're all caught up!</div>
+                                                ) : (
+                                                    notifications.map((notif) => (
+                                                        <div
+                                                            key={notif.id}
+                                                            onClick={() => handleMarkAsRead(notif.id, notif.isRead)}
+                                                            className={`p-3 rounded-xl cursor-pointer transition-colors flex gap-3 items-start ${notif.isRead ? 'opacity-60 hover:bg-gray-50' : 'bg-emerald-50/50 hover:bg-emerald-100/50'}`}
+                                                        >
+                                                            <div className={`w-2 h-2 mt-1.5 rounded-full shrink-0 ${notif.isRead ? 'bg-transparent' : 'bg-emerald-500'}`}></div>
+                                                            <div className="flex flex-col">
+                                                                <p className={`text-sm ${notif.isRead ? 'text-gray-600' : 'text-gray-900 font-medium'}`}>{notif.message}</p>
+                                                                <span className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wider font-bold">{notif.type}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
-                            </button>
+                            </div>
 
                             {/* Profile Button */}
                             <button 
