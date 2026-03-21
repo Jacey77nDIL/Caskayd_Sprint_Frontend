@@ -67,15 +67,11 @@ const SmoothSwitch = ({ activeKey, children }: { activeKey: string, children: Re
 };
 
 export default function LandingPageClient() {
-    // State for interactive toggles
-    const [mainRole, setMainRole] = useState<"brands" | "creators">("creators");
-    const [faqRole, setFaqRole] = useState<"brands" | "creators">("brands");
-    const [openFaq, setOpenFaq] = useState<number | null>(0);
+    // We unified all three section toggles into this one single master state
+    const [activeRole, setActiveRole] = useState<"brands" | "creators">("creators");
     
-    // State specifically for the 3-column feature section
-    const [focusRole, setFocusRole] = useState<"brands" | "creators">("creators");
+    const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-    // Replaced string arrays with actual Q&A objects from your document
     const brandFaqs = [
         {
             question: "How do we know which creators are right for our brand?",
@@ -118,8 +114,8 @@ export default function LandingPageClient() {
         }
     ];
 
-    // SEO: Dynamic generation of FAQ Schema Markup based on the active role tab
-    const activeFaqs = faqRole === "brands" ? brandFaqs : creatorFaqs;
+    // Tied the active FAQs to our new unified state
+    const activeFaqs = activeRole === "brands" ? brandFaqs : creatorFaqs;
     
     const structuredData = {
         "@context": "https://schema.org",
@@ -233,26 +229,27 @@ export default function LandingPageClient() {
                 <ScrollReveal>
                     <section className="py-12 md:py-16 flex flex-col items-center">
                         <div className="bg-white p-1 rounded-full border border-gray-200 inline-flex mb-10 shadow-sm">
+                            {/* Updated to use the unified activeRole state */}
                             <button 
-                                onClick={() => setMainRole("brands")}
-                                className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${mainRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm border border-gray-100" : "text-gray-500 hover:text-gray-700"}`}
+                                onClick={() => setActiveRole("brands")}
+                                className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${activeRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm border border-gray-100" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 For Brands
                             </button>
                             <button 
-                                onClick={() => setMainRole("creators")}
-                                className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${mainRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-md shadow-emerald-200" : "text-gray-500 hover:text-gray-700"}`}
+                                onClick={() => setActiveRole("creators")}
+                                className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${activeRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-md shadow-emerald-200" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 For Creators
                             </button>
                         </div>
 
                         <h2 className="text-3xl font-bold mb-12 text-center">
-                            {mainRole === "creators" ? "Your Creativity. Your Terms." : "Stop Guessing. Start Scaling with Data."}
+                            {activeRole === "creators" ? "Your Creativity. Your Terms." : "Stop Guessing. Start Scaling with Data."}
                         </h2>
 
-                        <SmoothSwitch activeKey={mainRole}>
-                            {mainRole === "creators" ? (
+                        <SmoothSwitch activeKey={activeRole}>
+                            {activeRole === "creators" ? (
                                 <div className="w-full flex flex-col items-center">
                                     <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-5xl gap-8 md:gap-12 mb-12 md:mb-16">
                                         <div className="flex-1 max-w-sm">
@@ -325,28 +322,29 @@ export default function LandingPageClient() {
                 <ScrollReveal>
                     <section className="py-12 md:py-16 text-center w-full max-w-6xl mx-auto">
                         <div className="flex justify-center items-center gap-4 md:gap-8 mb-8">
+                            {/* Updated to use the unified activeRole state */}
                             <button 
-                                onClick={() => setFocusRole("brands")}
-                                className={`font-semibold transition-all px-6 py-2.5 rounded-full ${focusRole === "brands" ? "flex items-center gap-2 bg-gradient-to-b from-[#7D7FF3] to-[#212250] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#212250]/30" : "text-[#5B4DFF] hover:opacity-80"}`}
+                                onClick={() => setActiveRole("brands")}
+                                className={`font-semibold transition-all px-6 py-2.5 rounded-full ${activeRole === "brands" ? "flex items-center gap-2 bg-gradient-to-b from-[#7D7FF3] to-[#212250] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#212250]/30" : "text-[#5B4DFF] hover:opacity-80 cursor-pointer"}`}
                             >
                                 For Brands
                             </button>
                             <button 
-                                onClick={() => setFocusRole("creators")}
-                                className={`font-semibold transition-all px-6 py-2.5 rounded-full ${focusRole === "creators" ? "flex items-center gap-2 bg-gradient-to-b from-[#37C496] to-[#053D2B] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#053D2B]/30" : "text-[#00D68F] hover:opacity-80"}`}
+                                onClick={() => setActiveRole("creators")}
+                                className={`font-semibold transition-all px-6 py-2.5 rounded-full ${activeRole === "creators" ? "flex items-center gap-2 bg-gradient-to-b from-[#37C496] to-[#053D2B] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#053D2B]/30" : "text-[#00D68F] hover:opacity-80 cursor-pointer"}`}
                             >
                                 For Creators
                             </button>
                         </div>
 
-                        <SmoothSwitch activeKey={focusRole}>
+                        <SmoothSwitch activeKey={activeRole}>
                             <h2 className="text-3xl font-bold mb-10 md:mb-12">
-                                {focusRole === "creators" 
+                                {activeRole === "creators" 
                                     ? "Focus on portfolio building, receiving work, and getting paid." 
                                     : "Focus on discovery, initiation, and security."}
                             </h2>
                             
-                            {focusRole === "creators" ? (
+                            {activeRole === "creators" ? (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 text-left">
                                     <div className="flex flex-col">
                                         <div className="h-32 w-full md:max-w-full lg:max-w-[280px] relative rounded-[3rem] shadow-lg flex items-center justify-center mb-8 overflow-hidden mx-auto bg-white">
@@ -488,25 +486,26 @@ export default function LandingPageClient() {
                             <h2 className="text-3xl font-bold">Frequently asked questions</h2>
                             
                             <div className="bg-gray-100 p-1 rounded-full inline-flex self-start">
+                                {/* Updated to use the unified activeRole state */}
                                 <button 
-                                    onClick={() => setFaqRole("brands")}
-                                    className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${faqRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm" : "text-gray-500"}`}
+                                    onClick={() => setActiveRole("brands")}
+                                    className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm" : "text-gray-500"}`}
                                 >
                                     For Brands
                                 </button>
                                 <button 
-                                    onClick={() => setFaqRole("creators")}
-                                    className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${faqRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-sm" : "text-gray-500"}`}
+                                    onClick={() => setActiveRole("creators")}
+                                    className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-sm" : "text-gray-500"}`}
                                 >
                                     For Creators
                                 </button>
                             </div>
                         </div>
 
-                        <SmoothSwitch activeKey={faqRole}>
+                        <SmoothSwitch activeKey={activeRole}>
                             <div className="space-y-4 w-full">
-                                {/* Map over the new object arrays to display actual answers */}
-                                {(faqRole === "brands" ? brandFaqs : creatorFaqs).map((faq, index) => (
+                                {/* Using the dynamically selected array based on activeRole */}
+                                {(activeRole === "brands" ? brandFaqs : creatorFaqs).map((faq, index) => (
                                     <div key={index} className="border-b border-gray-200 pb-4">
                                         <button 
                                             onClick={() => setOpenFaq(openFaq === index ? null : index)}
@@ -584,7 +583,6 @@ export default function LandingPageClient() {
                             </a>
                         </div>
                         <div className="flex items-center gap-8 text-sm text-gray-500 font-medium">
-                            {/* Updated Footer Links to point to dedicated pages */}
                             <Link href="/privacy" className="hover:text-gray-900 transition-colors">Privacy Policy</Link>
                             <Link href="/terms" className="hover:text-gray-900 transition-colors">Terms of Service</Link>
                             <a href="mailto:Mary@caskayd.com" className="hover:text-gray-900 transition-colors">Contact</a>
