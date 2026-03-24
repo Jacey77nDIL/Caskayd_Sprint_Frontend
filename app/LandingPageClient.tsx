@@ -9,10 +9,8 @@ import {
     WalletIcon
 } from "@heroicons/react/24/outline";
 
-// --- NEW: Importing cleaner icons from react-icons ---
 import { FaXTwitter, FaInstagram, FaTiktok } from "react-icons/fa6";
 
-// --- Scroll Reveal Animation Wrapper ---
 const ScrollReveal = ({ children }: { children: React.ReactNode }) => {
     const [isVisible, setIsVisible] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -47,20 +45,24 @@ const ScrollReveal = ({ children }: { children: React.ReactNode }) => {
     );
 };
 
-// --- Smooth Switch Animation Wrapper for Toggles ---
 const SmoothSwitch = ({ activeKey, children }: { activeKey: string, children: React.ReactNode }) => {
     const [currentChild, setCurrentChild] = useState(children);
     const [isTransitioning, setIsTransitioning] = useState(false);
 
     useEffect(() => {
+        // start the fade out animation
         setIsTransitioning(true);
         const timeout = setTimeout(() => {
+            // swap the content exactly halfway through
             setCurrentChild(children);
             setIsTransitioning(false);
-        }, 200); // 200ms halfway point for the swap
+        }, 200);
 
+        // clear the timeout if the user clicks too fast
         return () => clearTimeout(timeout);
-    }, [activeKey, children]);
+        // only trigger this effect when the activeKey actually changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeKey]);
 
     return (
         <div className={`w-full transition-all duration-300 ease-in-out transform ${isTransitioning ? "opacity-0 scale-[0.98] translate-y-2" : "opacity-100 scale-100 translate-y-0"}`}>
@@ -70,7 +72,6 @@ const SmoothSwitch = ({ activeKey, children }: { activeKey: string, children: Re
 };
 
 export default function LandingPageClient() {
-    // We unified all three section toggles into this one single master state
     const [activeRole, setActiveRole] = useState<"brands" | "creators">("creators");
     
     const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -117,9 +118,11 @@ export default function LandingPageClient() {
         }
     ];
 
-    // Tied the active FAQs to our new unified state
     const activeFaqs = activeRole === "brands" ? brandFaqs : creatorFaqs;
     
+    // combine all faqs so search engines can index everything at once
+    const allFaqs = [...brandFaqs, ...creatorFaqs];
+
     const structuredData = {
         "@context": "https://schema.org",
         "@graph": [
@@ -132,7 +135,8 @@ export default function LandingPageClient() {
             },
             {
                 "@type": "FAQPage",
-                "mainEntity": activeFaqs.map(faq => ({
+                // map over the combined list instead of just the active tab
+                "mainEntity": allFaqs.map(faq => ({
                     "@type": "Question",
                     "name": faq.question,
                     "acceptedAnswer": {
@@ -146,20 +150,17 @@ export default function LandingPageClient() {
 
     return (
         <div className="min-h-screen bg-[#F8F9FA] relative overflow-hidden font-sans text-gray-900">
-            {/* Inject Structured Data into the DOM */}
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
             />
 
-            {/* Ambient Background Gradients */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-200/40 blur-[120px] rounded-full"></div>
                 <div className="absolute top-[20%] right-[-10%] w-[40%] h-[40%] bg-emerald-200/30 blur-[120px] rounded-full"></div>
                 <div className="absolute bottom-[10%] left-[10%] w-[60%] h-[40%] bg-blue-200/30 blur-[120px] rounded-full"></div>
             </div>
 
-            {/* HEADER */}
             <header className="fixed w-full top-0 z-50 backdrop-blur-md bg-white/95 border-b border-gray-100/50 shadow-sm transition-all">
                 <div className="max-w-[90rem] mx-auto px-6 py-4 flex items-center justify-between">
                     <Link href="/">
@@ -191,7 +192,6 @@ export default function LandingPageClient() {
 
             <main className="w-full max-w-[90rem] mx-auto px-6 relative z-10 pt-24">
                 
-                {/* 1. HERO SECTION */}
                 <ScrollReveal>
                     <section className="pt-12 pb-12 md:pt-16 md:pb-16 flex flex-col lg:flex-row items-center justify-between gap-12">
                         <div className="flex-1 max-w-2xl">
@@ -228,19 +228,21 @@ export default function LandingPageClient() {
                     </section>
                 </ScrollReveal>
 
-                {/* 2. MAIN TOGGLE SECTION */}
                 <ScrollReveal>
                     <section className="py-12 md:py-16 flex flex-col items-center">
                         <div className="bg-white p-1 rounded-full border border-gray-200 inline-flex mb-10 shadow-sm">
-                            {/* Updated to use the unified activeRole state */}
                             <button 
                                 onClick={() => setActiveRole("brands")}
+                                // let screen readers know if this toggle is active
+                                aria-pressed={activeRole === "brands"}
                                 className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${activeRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm border border-gray-100" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 For Brands
                             </button>
                             <button 
                                 onClick={() => setActiveRole("creators")}
+                                // let screen readers know if this toggle is active
+                                aria-pressed={activeRole === "creators"}
                                 className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all cursor-pointer ${activeRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-md shadow-emerald-200" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 For Creators
@@ -321,19 +323,21 @@ export default function LandingPageClient() {
                     </section>
                 </ScrollReveal>
 
-                {/* 3. THREE COLUMN SECTION */}
                 <ScrollReveal>
                     <section className="py-12 md:py-16 text-center w-full max-w-6xl mx-auto">
                         <div className="flex justify-center items-center gap-4 md:gap-8 mb-8">
-                            {/* Updated to use the unified activeRole state */}
                             <button 
                                 onClick={() => setActiveRole("brands")}
+                                // let screen readers know if this toggle is active
+                                aria-pressed={activeRole === "brands"}
                                 className={`font-semibold transition-all px-6 py-2.5 rounded-full ${activeRole === "brands" ? "flex items-center gap-2 bg-gradient-to-b from-[#7D7FF3] to-[#212250] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#212250]/30" : "text-[#5B4DFF] hover:opacity-80 cursor-pointer"}`}
                             >
                                 For Brands
                             </button>
                             <button 
                                 onClick={() => setActiveRole("creators")}
+                                // let screen readers know if this toggle is active
+                                aria-pressed={activeRole === "creators"}
                                 className={`font-semibold transition-all px-6 py-2.5 rounded-full ${activeRole === "creators" ? "flex items-center gap-2 bg-gradient-to-b from-[#37C496] to-[#053D2B] hover:opacity-90 text-white font-bold py-3.5 px-6 rounded-full transition-all shadow-xl shadow-[#053D2B]/30" : "text-[#00D68F] hover:opacity-80 cursor-pointer"}`}
                             >
                                 For Creators
@@ -433,7 +437,6 @@ export default function LandingPageClient() {
                     </section>
                 </ScrollReveal>
 
-                {/* 4. BRAND FEATURES SECTION */}
                 <ScrollReveal>
                     <section className="py-12 md:py-16">
                         <div className="flex flex-col md:flex-row items-center justify-between w-full max-w-5xl mx-auto gap-8 md:gap-12 mb-12 md:mb-16">
@@ -482,7 +485,6 @@ export default function LandingPageClient() {
                     </section>
                 </ScrollReveal>
 
-                {/* 5. FAQ SECTION */}
                 <ScrollReveal>
                     <section className="py-12 md:py-16 border-t border-gray-200/60 max-w-4xl mx-auto w-full">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -491,12 +493,16 @@ export default function LandingPageClient() {
                             <div className="bg-gray-100 p-1 rounded-full inline-flex self-start">
                                 <button 
                                     onClick={() => setActiveRole("brands")}
+                                    // let screen readers know if this toggle is active
+                                    aria-pressed={activeRole === "brands"}
                                     className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRole === "brands" ? "bg-gradient-to-b from-[#7D7FF3] to-[#212250] text-white shadow-sm" : "text-gray-500"}`}
                                 >
                                     For Brands
                                 </button>
                                 <button 
                                     onClick={() => setActiveRole("creators")}
+                                    // let screen readers know if this toggle is active
+                                    aria-pressed={activeRole === "creators"}
                                     className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${activeRole === "creators" ? "bg-gradient-to-b from-[#37C496] to-[#053D2B] text-white shadow-sm" : "text-gray-500"}`}
                                 >
                                     For Creators
@@ -510,6 +516,8 @@ export default function LandingPageClient() {
                                     <div key={index} className="border-b border-gray-200 pb-4">
                                         <button 
                                             onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                                            // tell screen readers if the answer is showing
+                                            aria-expanded={openFaq === index}
                                             className="w-full flex justify-between items-center py-2 text-left font-semibold text-gray-900 hover:text-[#5B4DFF] transition-colors cursor-pointer"
                                         >
                                             {faq.question}
@@ -527,7 +535,6 @@ export default function LandingPageClient() {
                     </section>
                 </ScrollReveal>
 
-                {/* 6. BOTTOM CTA SECTION */}
                 <ScrollReveal>
                     <section className="py-12 md:py-16 max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12">
                         <div className="flex-1">
@@ -564,7 +571,6 @@ export default function LandingPageClient() {
                 </ScrollReveal>
             </main>
 
-            {/* 7. FOOTER */}
             <footer className="border-t border-gray-200/60 mt-8 py-12">
                 <div className="max-w-[90rem] mx-auto px-6">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
@@ -572,19 +578,16 @@ export default function LandingPageClient() {
                             <span className="text-gray-500 text-sm font-medium mr-2">Follow us on :</span>
                             
                             <a href="https://x.com/CaskaydApp" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer text-gray-400 hover:text-gray-900 transition-colors group">
-                                {/* Applied react-icon */}
                                 <FaXTwitter className="w-5 h-5 group-hover:text-black transition-colors" />
                                 <span className="text-sm font-semibold group-hover:text-black transition-colors">Twitter</span>
                             </a>
                             
                             <a href="https://www.instagram.com/caskaydapp" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer text-gray-400 hover:text-pink-600 transition-colors group ml-2">
-                                {/* Applied react-icon */}
                                 <FaInstagram className="w-5 h-5 group-hover:text-pink-600 transition-colors" />
                                 <span className="text-sm font-semibold group-hover:text-pink-600 transition-colors">Instagram</span>
                             </a>
 
                             <a href="https://www.tiktok.com/@caskaydapp?is_from_webapp=1&sender_device=pc" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 cursor-pointer text-gray-400 hover:text-black transition-colors group ml-2">
-                                {/* Applied react-icon */}
                                 <FaTiktok className="w-5 h-5 group-hover:text-black transition-colors" />
                                 <span className="text-sm font-semibold group-hover:text-black transition-colors">TikTok</span>
                             </a>
