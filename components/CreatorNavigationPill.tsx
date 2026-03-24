@@ -223,6 +223,7 @@ export default function CreatorNavigationPill() {
                     
                     <div className="bg-white rounded-full shadow-lg shadow-gray-200/50 border border-gray-100 py-3 md:py-4 px-4 sm:px-6 md:px-8 flex items-center justify-between relative gap-1 md:gap-4">
                         
+                                                <Link href="/" className="flex items-center gap-2 md:gap-3 shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
                         <div className="flex items-center shrink-0">
                             <div className="relative w-32 h-8 md:w-40 md:h-10 hidden sm:block">
                                 <Image 
@@ -241,6 +242,7 @@ export default function CreatorNavigationPill() {
                                 />
                             </div>
                         </div>
+                        </Link>
 
                         <div className="flex flex-1 justify-evenly items-center md:gap-10 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
                             <Link href="/creator/dashboard" className="group">
