@@ -23,7 +23,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 type FilterOption = string | { label: string; value: string };
 
-// Added storedVideoUrl to the interface
 interface SpotlightVideo {
     position: number;
     provider: string;
@@ -98,8 +97,9 @@ const Toast = ({ message, type, isVisible, onClose }: { message: string, type: "
 
     if (!isVisible) return null;
 
+    // Fix 1: Boosted z-index to 9999 so it shows over modals
     return (
-        <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[100] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl transition-all duration-300 ${
+        <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[9999] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl transition-all duration-300 ${
             isVisible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
         } ${type === "success" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"}`}>
             {type === "success" ? <CheckCircleIcon className="w-6 h-6"/> : <ExclamationCircleIcon className="w-6 h-6"/>}
@@ -224,7 +224,6 @@ const MultiSelectDropdown = ({ label, options, selectedValues, onToggle }: { lab
     );
 };
 
-// Now accepts the whole video object to dictate how to render the player
 const VideoPlayerModal = ({ video, onClose }: { video: SpotlightVideo | null, onClose: () => void }) => {
     if (!video) return null;
 
@@ -238,7 +237,6 @@ const VideoPlayerModal = ({ video, onClose }: { video: SpotlightVideo | null, on
             </button>
             
             <div onClick={e => e.stopPropagation()} className={`w-full bg-black rounded-xl overflow-hidden shadow-2xl relative ${isTikTok ? 'max-w-sm aspect-[9/16]' : 'max-w-5xl aspect-video'}`}>
-                {/* Dynamically render standard iframe or native HTML5 video */}
                 {isUpload ? (
                     <video 
                         src={video.storedVideoUrl!} 
@@ -291,7 +289,6 @@ const CreatorDetailsModal = ({ isOpen, onClose, creator, onInvite, onPlayVideo }
                             <div 
                                 key={video.position} 
                                 onClick={() => {
-                                    // Let native uploaded videos or videos with valid embed URLs trigger the modal
                                     if (isUpload || video.embedUrl) {
                                         onPlayVideo(video);
                                     } else if (video.originalUrl) {
@@ -554,7 +551,14 @@ const InviteModal = ({
 
             if (!res.ok) {
                 const err = await res.json().catch(() => null);
-                console.error("🔴 [API Error] POST /chat-requests FAILED:", err);
+                console.error("🔴 [API Error] POST /chat-requests FAILED:", err || res.statusText);
+                
+                if (res.status === 400) {
+                    onShowToast("You already have an active conversation with this creator.", "error");
+                    setIsSubmitting(false);
+                    return; 
+                }
+
                 throw new Error("Failed to send collaboration request");
             }
 
@@ -735,7 +739,6 @@ export default function DiscoverPageClient() {
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [showFloatingFilterModal, setShowFloatingFilterModal] = useState(false);
 
-  // Updated state to hold the entire spotlight video object
   const [playingVideo, setPlayingVideo] = useState<SpotlightVideo | null>(null);
 
   const showToast = (msg: string, type: "success"|"error") => {
