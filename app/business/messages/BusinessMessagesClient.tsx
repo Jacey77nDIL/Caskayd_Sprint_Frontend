@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import NavigationPill from "@/components/NavigationPill"; 
 import { 
@@ -46,6 +46,10 @@ interface Conversation {
     userId: string;
     avatar: string | null;
     displayName: string;
+    status: "ACTIVE" | "ENDED"; 
+    creatorEndRequested: boolean; 
+    businessEndRequested: boolean; 
+    endedAt: string | null; 
 }
 
 interface Message {
@@ -137,8 +141,9 @@ export default function BusinessMessagesClient() {
         setActiveChatId(null); 
     };
 
+    // Fix 2: Filter out any chats where the status is ENDED
     const filteredConversations = conversations.filter(chat => 
-        getCreatorName(chat).toLowerCase().includes(searchQuery.toLowerCase())
+        chat.status !== "ENDED" && getCreatorName(chat).toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const scrollToBottom = () => {
@@ -149,21 +154,54 @@ export default function BusinessMessagesClient() {
 
     const fetchUnreadCount = async (token: string) => {
         try {
+            console.log("🔵 [API Request] GET /messages/unread/count");
             const res = await fetch(`${BASE_URL}/messages/unread/count`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (res.ok) {
                 const data = await res.json();
+                console.log("🟢 [API Response] GET /messages/unread/count SUCCESS:", data);
                 const count = typeof data === 'number' ? data : (data.count || data.unreadCount || 0);
                 setGlobalUnreadCount(count);
+            } else {
+                console.error("🔴 [API Error] GET /messages/unread/count FAILED");
             }
         } catch (error) {
             console.error("🔴 [Network Error] GET /messages/unread/count failed:", error);
         }
     };
 
-    // --- API FALLBACK: Fetch Messages Function ---
-    const fetchMessages = async (showLoadingState = false) => {
+    const fetchConversations = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("accessToken");
+            if (!token) return;
+
+            await fetchUnreadCount(token);
+
+            console.log("🔵 [API Request] GET /conversations");
+            const res = await fetch(`${BASE_URL}/conversations`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                console.log("🟢 [API Response] GET /conversations SUCCESS:", data);
+                setConversations(data);
+            } else {
+                console.error("🔴 [API Error] GET /conversations FAILED:", await res.text());
+            }
+        } catch (error) {
+            console.error("🔴 [Network Error] GET /conversations crashed:", error);
+        } finally {
+            setLoadingConversations(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchConversations();
+    }, [fetchConversations]);
+
+    const fetchMessages = useCallback(async (showLoadingState = false) => {
         if (!activeChatId) return;
         const token = localStorage.getItem("accessToken");
         if (!token) return;
@@ -171,17 +209,18 @@ export default function BusinessMessagesClient() {
         if (showLoadingState) setInitialLoadingMessages(true);
 
         try {
+            console.log(`🔵 [API Request] GET /messages/${activeChatId}`);
             const res = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
             if (res.ok) {
                 const data = await res.json();
+                console.log(`🟢 [API Response] GET /messages/${activeChatId} SUCCESS`);
                 const sorted = data.sort((a: Message, b: Message) => 
                     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
                 );
                 
-                // Only update state if the length changed to prevent aggressive re-renders
                 setMessages(prev => {
                     if (prev.length !== sorted.length) {
                         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -191,7 +230,7 @@ export default function BusinessMessagesClient() {
                 });
             }
 
-            // Silently mark as read in the background
+            console.log(`🔵 [API Request] PATCH /messages/read/${activeChatId}`);
             await fetch(`${BASE_URL}/messages/read/${activeChatId}`, {
                 method: "PATCH",
                 headers: { "Authorization": `Bearer ${token}` }
@@ -203,39 +242,8 @@ export default function BusinessMessagesClient() {
         } finally {
             if (showLoadingState) setInitialLoadingMessages(false);
         }
-    };
+    }, [activeChatId]);
 
-    useEffect(() => {
-        const fetchConversations = async () => {
-            try {
-                const token = localStorage.getItem("accessToken");
-                if (!token) return;
-
-                await fetchUnreadCount(token);
-
-                console.log("🔵 [API Request] GET /conversations");
-                const res = await fetch(`${BASE_URL}/conversations`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log("🟢 [API Response] GET /conversations SUCCESS:", data);
-                    setConversations(data);
-                } else {
-                    console.error("🔴 [API Error] GET /conversations FAILED:", await res.text());
-                }
-            } catch (error) {
-                console.error("🔴 [Network Error] GET /conversations crashed:", error);
-            } finally {
-                setLoadingConversations(false);
-            }
-        };
-
-        fetchConversations();
-    }, []);
-
-    // Reworked Chat UseEffect to incorporate polling
     useEffect(() => {
         if (!activeChatId) {
             if (socket && isConnected) {
@@ -249,15 +257,12 @@ export default function BusinessMessagesClient() {
             socket.emit("active_chat", { conversationId: activeChatId });
         }
 
-        // 1. Fetch immediately on load with loading spinner
         fetchMessages(true);
 
-        // 2. Set up the 3-second polling fallback
         const pollInterval = setInterval(() => {
             fetchMessages();
         }, 3000);
 
-        // 3. Keep the socket listener for instant updates if the backend fixes it
         const handleIncomingMessage = (payload: any) => {
             console.log("🟢 [WebSocket] Real-time message detected, triggering fetch...");
             fetchMessages(); 
@@ -269,7 +274,7 @@ export default function BusinessMessagesClient() {
             clearInterval(pollInterval);
             if (socket) socket.off("new_message", handleIncomingMessage);
         };
-    }, [activeChatId, socket, isConnected]); 
+    }, [activeChatId, socket, isConnected, fetchMessages]); 
 
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !activeChatId) return;
@@ -281,7 +286,6 @@ export default function BusinessMessagesClient() {
         setNewMessage("");
 
         try {
-            // Ensure payload exactly matches backend expectations with uppercase TEXT
             const payload = {
                 type: "TEXT", 
                 content: messageToSend
@@ -301,7 +305,6 @@ export default function BusinessMessagesClient() {
 
             if (res.ok) {
                 console.log("🟢 [API Response] POST /messages SUCCESS");
-                // Immediately trigger a fetch so the sender sees their message instantly
                 fetchMessages(); 
             } else {
                 const errText = await res.text();
@@ -345,7 +348,7 @@ export default function BusinessMessagesClient() {
 
             if (msgRes.ok) {
                 console.log("🟢 [API Response] POST /messages (File) SUCCESS");
-                fetchMessages(); // Trigger UI update
+                fetchMessages(); 
             } else {
                 const errData = await msgRes.json().catch(() => null);
                 console.error(`🔴 [API Error] POST /messages (File) FAILED: Status ${msgRes.status}`, errData || msgRes.statusText);
@@ -357,6 +360,35 @@ export default function BusinessMessagesClient() {
         } finally {
             setIsUploadingFile(false);
             if (fileInputRef.current) fileInputRef.current.value = ""; 
+        }
+    };
+
+    const handleEndConversation = async () => {
+        if (!activeChatId) return;
+
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        try {
+            console.log(`🔵 [API Request] PATCH /conversations/${activeChatId}/end`);
+            const res = await fetch(`${BASE_URL}/conversations/${activeChatId}/end`, {
+                method: "PATCH",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                console.log("🟢 [API Response] PATCH /end SUCCESS:", data);
+                showToast("Request to end conversation submitted.", "success");
+                fetchConversations();
+            } else {
+                const errData = await res.json().catch(() => null);
+                console.error("🔴 [API Error] PATCH /end FAILED:", errData);
+                showToast(errData?.message || "Failed to end conversation.", "error");
+            }
+        } catch (error) {
+            console.error("🔴 [Network Error] PATCH /end crashed:", error);
+            showToast("Network error. Please try again.", "error");
         }
     };
 
@@ -442,6 +474,9 @@ export default function BusinessMessagesClient() {
     const platformFee = isNaN(numericAmount) ? 0 : numericAmount * 0.10;
     const totalAmount = isNaN(numericAmount) ? 0 : numericAmount + platformFee;
 
+    const isChatEnded = activeConversation?.status === "ENDED";
+    const isWaitingForEnd = activeConversation?.status === "ACTIVE" && activeConversation?.businessEndRequested;
+
     return (
         <div className={`h-screen w-full flex flex-col bg-[#F8F9FB] ${inter.className} overflow-hidden`}>
             
@@ -508,7 +543,7 @@ export default function BusinessMessagesClient() {
                             )}
                         </div>
                     </div>
-
+ 
                     {/* --- CENTER PANEL --- */}
                     <div className={`flex-1 flex flex-col h-full min-w-0 min-h-0 bg-white relative ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
                         {activeChatId && activeConversation ? (
@@ -527,20 +562,59 @@ export default function BusinessMessagesClient() {
                                             <h2 className="font-bold text-gray-900 text-base leading-tight truncate">{getCreatorName(activeConversation)}</h2>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 shrink-0">
+                                    
+                                    <div className="flex items-center gap-2 md:gap-3 shrink-0">
                                         
+                                        {/* Fix 3: Shortened button text on mobile via span hidden utilities */}
                                         <button 
                                             onClick={() => setIsPaymentModalOpen(true)}
-                                            className="bg-[#D1F7C4] hover:bg-[#bbf0aa] text-[#0A4D36] font-bold py-2 px-4 rounded-xl text-sm transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+                                            className="bg-[#D1F7C4] hover:bg-[#bbf0aa] text-[#0A4D36] font-bold py-1.5 px-3 md:py-2 md:px-4 rounded-xl text-xs md:text-sm transition-colors shadow-sm cursor-pointer whitespace-nowrap"
                                         >
-                                            Pay Creator
+                                            <span className="hidden sm:inline">Pay Creator</span>
+                                            <span className="sm:hidden">Pay</span>
                                         </button>
+                                        
+                                        {!isChatEnded && (
+                                            <button 
+                                                onClick={handleEndConversation}
+                                                disabled={isWaitingForEnd}
+                                                className={`font-bold py-1.5 px-3 md:py-2 md:px-4 rounded-xl text-xs md:text-sm transition-colors shadow-sm whitespace-nowrap ${isWaitingForEnd ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer'}`}
+                                            >
+                                                <span className="hidden sm:inline">{isWaitingForEnd ? "Waiting for creator..." : "End Conversation"}</span>
+                                                <span className="sm:hidden">{isWaitingForEnd ? "Waiting..." : "End"}</span>
+                                            </button>
+                                        )}
                                         
                                     </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-white relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                     <div className="flex justify-center mb-6"><span className="bg-indigo-50 text-[#5B4DFF] text-xs font-bold px-3 py-1 rounded-full">Today</span></div>
+                                    
+                                    {isChatEnded && (
+                                        <div className="flex justify-center my-4">
+                                            <span className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2 rounded-full border border-red-100">
+                                                This conversation has ended.
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Fix 4: Added inline chat banner for pending end requests */}
+                                    {!isChatEnded && activeConversation.creatorEndRequested && (
+                                        <div className="flex justify-center my-4">
+                                            <span className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2 rounded-full border border-red-100">
+                                                {getCreatorName(activeConversation)} wants to end the conversation.
+                                            </span>
+                                        </div>
+                                    )}
+                                    {!isChatEnded && isWaitingForEnd && (
+                                        <div className="flex justify-center my-4">
+                                            <span className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2 rounded-full border border-red-100">
+                                                You requested to end the conversation.
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {initialLoadingMessages ? (
                                         <div className="flex justify-center mt-10"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>
                                     ) : messages.map((msg) => {
@@ -593,31 +667,37 @@ export default function BusinessMessagesClient() {
                                 </div>
 
                                 <div className="p-4 md:p-6 bg-white border-t border-gray-100 shrink-0">
-                                    <div className="bg-[#F8F9FB] rounded-2xl px-2 py-2 flex items-center gap-2 border border-gray-100 focus-within:border-indigo-300 transition-colors shadow-sm">
-                                        
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={handleFileUpload} 
-                                            className="hidden" 
-                                            disabled={isUploadingFile}
-                                        />
-                                        
-                                        <button 
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={isUploadingFile}
-                                            className="p-2 text-gray-400 hover:text-[#5B4DFF] transition-colors rounded-full hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
-                                        >
-                                            {isUploadingFile ? (
-                                                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                                            ) : (
-                                                <PaperClipIcon className="w-5 h-5 cursor-pointer" />
-                                            )}
-                                        </button>
-                                        
-                                        <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendMessage(); } }} placeholder="Type a message" className="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400" />
-                                        <button onClick={(e) => { e.preventDefault(); handleSendMessage(); }} disabled={!newMessage.trim()} className="bg-[#5B4DFF] p-2.5 rounded-xl text-white hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:shadow-none cursor-pointer"><PaperAirplaneIcon className="w-5 h-5" /></button>
-                                    </div>
+                                    {isChatEnded ? (
+                                        <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center justify-center border border-gray-200">
+                                            <p className="text-sm text-gray-500 font-medium">This conversation has ended. You can no longer send messages.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-[#F8F9FB] rounded-2xl px-2 py-2 flex items-center gap-2 border border-gray-100 focus-within:border-indigo-300 transition-colors shadow-sm">
+                                            
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                onChange={handleFileUpload} 
+                                                className="hidden" 
+                                                disabled={isUploadingFile}
+                                            />
+                                            
+                                            <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploadingFile}
+                                                className="p-2 text-gray-400 hover:text-[#5B4DFF] transition-colors rounded-full hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
+                                            >
+                                                {isUploadingFile ? (
+                                                    <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <PaperClipIcon className="w-5 h-5 cursor-pointer" />
+                                                )}
+                                            </button>
+                                            
+                                            <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSendMessage(); } }} placeholder="Type a message" className="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400" />
+                                            <button onClick={(e) => { e.preventDefault(); handleSendMessage(); }} disabled={!newMessage.trim()} className="bg-[#5B4DFF] p-2.5 rounded-xl text-white hover:bg-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:shadow-none cursor-pointer"><PaperAirplaneIcon className="w-5 h-5" /></button>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         ) : (

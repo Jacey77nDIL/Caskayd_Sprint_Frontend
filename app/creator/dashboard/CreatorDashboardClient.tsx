@@ -66,7 +66,6 @@ export default function CreatorDashboardClient() {
     }
   }, [router]);
 
-  // Fix: Lock background scroll when the invite modal is open
   useEffect(() => {
       if (selectedInvite) {
           document.body.style.overflow = 'hidden';
@@ -80,14 +79,18 @@ export default function CreatorDashboardClient() {
 
   const fetchRequests = async (token: string) => {
       try {
+          console.log("🔵 [API Request] GET /chat-requests/creator");
           const res = await fetch(`${BASE_URL}/chat-requests/creator`, {
               headers: { "Authorization": `Bearer ${token}` }
           });
           
           if (res.ok) {
               const data = await res.json();
+              console.log("🟢 [API Response] GET /chat-requests/creator SUCCESS");
               const sortedData = data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
               setInvites(sortedData);
+          } else {
+              console.error("🔴 [API Error] GET /chat-requests/creator FAILED:", await res.text());
           }
       } catch (error) {
           console.error("🔴 [Network Error] GET /chat-requests/creator crashed:", error);
@@ -98,16 +101,20 @@ export default function CreatorDashboardClient() {
 
   const fetchEarnings = async (token: string) => {
       try {
+          console.log("🔵 [API Request] GET /payments/earnings");
           const res = await fetch(`${BASE_URL}/payments/earnings`, {
               headers: { "Authorization": `Bearer ${token}` }
           });
           
           if (res.ok) {
               const data = await res.json();
+              console.log("🟢 [API Response] GET /payments/earnings SUCCESS");
               setEarningsData({
                   totalEarned: data?.totalEarned || 0,
                   totalTransactions: data?.totalTransactions || 0
               });
+          } else {
+              console.error("🔴 [API Error] GET /payments/earnings FAILED:", await res.text());
           }
       } catch (error) {
           console.error("🔴 [Network Error] GET /payments/earnings crashed:", error);
@@ -121,12 +128,14 @@ export default function CreatorDashboardClient() {
       if (!token) return;
 
       try {
+          console.log(`🔵 [API Request] PATCH /chat-requests/${id}/${action}`);
           const res = await fetch(`${BASE_URL}/chat-requests/${id}/${action}`, {
               method: "PATCH",
               headers: { "Authorization": `Bearer ${token}` }
           });
 
           if (res.ok) {
+              console.log(`🟢 [API Response] PATCH /chat-requests/${id}/${action} SUCCESS`);
               if (action === "reject") {
                   showToast(`Request declined`, "error");
               } else {
@@ -135,10 +144,18 @@ export default function CreatorDashboardClient() {
               setInvites(prev => prev.filter(invite => invite.id !== id));
               setSelectedInvite(null); 
           } else {
-              const errorData = await res.json();
-              throw new Error(errorData.message || "Action failed");
+              const errorData = await res.json().catch(() => null);
+              console.error(`🔴 [API Error] PATCH /chat-requests/${id}/${action} FAILED:`, errorData);
+              
+              // Handle specific 400 error for duplicate active chats upon acceptance
+              if (res.status === 400 && action === "accept") {
+                  throw new Error("An active conversation already exists for this business and creator");
+              }
+              
+              throw new Error(errorData?.message || "Action failed");
           }
       } catch (error: any) {
+          console.error(`🔴 [Network Error] /chat-requests action crashed:`, error);
           showToast(error.message || "Something went wrong", "error");
       }
   };
