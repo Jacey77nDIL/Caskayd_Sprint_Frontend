@@ -23,7 +23,7 @@ const inter = Inter({ subsets: ["latin"] });
 // --- CONFIGURATION ---
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
-const AVAILABLE_NICHES = ["Food & Food Stuff","Beverages","Electronics/Gadgets","Flowers & Floral-inspired Gifts","Gifts & Gift packages","Arts & Crafts","Retail (General)","Clothing","Jewelry & Accessories","Footwear","Extensions","Bags","Perfumes","Skincare","Transportation / Travel","Hospitality Services","Product Customization"];
+const AVAILABLE_NICHES = ["Lifestyle","Events","Food & Food Stuff","Beverages","Electronics/Gadgets","Flowers & Floral-inspired Gifts","Gifts & Gift packages","Arts & Crafts","Retail (General)","Clothing","Jewelry & Accessories","Footwear","Extensions","Bags","Perfumes","Skincare","Transportation / Travel","Hospitality Services","Product Customization"];
 
 const FALLBACK_BANKS = [
     { name: "Access Bank", code: "044" },

@@ -6,6 +6,14 @@ import { UserIcon, KeyIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from "@her
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
+const AVAILABLE_INDUSTRIES = [
+    "Lifestyle", "Events", "Food & Food Stuff", "Beverages", "Electronics/Gadgets", 
+    "Flowers & Floral-inspired Gifts", "Gifts & Gift packages", "Arts & Crafts", 
+    "Retail (General)", "Clothing", "Jewelry & Accessories", "Footwear", "Extensions", 
+    "Bags", "Perfumes", "Skincare", "Transportation / Travel", "Hospitality Services", 
+    "Product Customization"
+];
+
 const Toast = ({ message, type, isVisible, onClose }: { message: string, type: "success" | "error", isVisible: boolean, onClose: () => void }) => {
     useEffect(() => {
         if (isVisible) {
@@ -30,11 +38,13 @@ export default function BusinessSettingsClient() {
     const [toast, setToast] = useState({ message: "", type: "success" as "success" | "error", isVisible: false });
 
     const [isSaving, setIsSaving] = useState(false);
+    
+    // Updated category to be an array of strings instead of a single string
     const [generalData, setGeneralData] = useState({
         companyName: "",
         location: "",
         websiteUrl: "",
-        category: ""
+        category: [] as string[] 
     });
     
     const [resetStep, setResetStep] = useState<1 | 2>(1);
@@ -42,65 +52,123 @@ export default function BusinessSettingsClient() {
 
     const showToast = (message: string, type: "success" | "error") => setToast({ message, type, isVisible: true });
 
+    // Fetch the business profile on mount
     useEffect(() => {
         const fetchProfile = async () => {
             const token = localStorage.getItem("accessToken");
             if (!token) return;
 
             try {
-                const res = await fetch(`${BASE_URL}/users/profile`, {
+                console.log(`[API CALL] GET ${BASE_URL}/users/business/profile`);
+                
+                const res = await fetch(`${BASE_URL}/users/business/profile`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
 
                 if (res.ok) {
                     const data = await res.json();
+                    console.log(`[API RESPONSE] Profile loaded:`, data);
+                    
                     const profile = Array.isArray(data) ? (data.find((p: any) => p.companyName) || data[0]) : data;
 
                     if (profile) {
+                        // Ensure we parse the category correctly if the backend returns a string or array
+                        let parsedCategory: string[] = [];
+                        if (Array.isArray(profile.category)) {
+                            parsedCategory = profile.category;
+                        } else if (typeof profile.category === 'string' && profile.category) {
+                            parsedCategory = profile.category.split(',').map((c: string) => c.trim());
+                        }
+
                         setGeneralData({
                             companyName: profile.companyName || "",
                             location: profile.location || "",
                             websiteUrl: profile.websiteUrl || "",
-                            category: profile.category || ""
+                            category: parsedCategory
                         });
                     }
+                } else {
+                    console.log(`[API ERROR] Profile fetch failed with status:`, res.status);
+                    showToast("Failed to load profile data.", "error");
                 }
             } catch (error) {
+                console.error(`[API CATCH ERROR] Fetch profile:`, error);
+                showToast("Network error while loading profile.", "error");
             }
         };
 
         fetchProfile();
     }, []);
 
+    // Handle adding and removing categories from the multi-select
+    const toggleCategory = (industry: string) => {
+        setGeneralData(prev => {
+            const currentCategories = prev.category;
+            
+            if (currentCategories.includes(industry)) {
+                // If it's already selected, remove it
+                return { ...prev, category: currentCategories.filter(c => c !== industry) };
+            } else {
+                // If it's not selected, enforce the maximum limit of 3
+                if (currentCategories.length >= 3) {
+                    showToast("You can only select up to 3 categories.", "error");
+                    return prev;
+                }
+                // Add the new selection
+                return { ...prev, category: [...currentCategories, industry] };
+            }
+        });
+    };
+
+    // Save profile changes
+// Save profile changes
+// Save profile changes
     const handleGeneralSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        
+
         const token = localStorage.getItem("accessToken");
         if (!token) return;
 
         setIsSaving(true);
         try {
+            const payload = {
+                ...generalData,
+                category: generalData.category.join(", ")
+            };
+
+            console.log(`[API CALL] PATCH ${BASE_URL}/users/business/profile`);
+            console.log(`[API PAYLOAD] Update profile:`, payload);
+
             const res = await fetch(`${BASE_URL}/users/business/profile`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify(generalData)
+                // Send the modified payload instead of generalData
+                body: JSON.stringify(payload) 
             });
 
             if (res.ok) {
+                const data = await res.json();
+                console.log(`[API RESPONSE] Profile updated:`, data);
                 showToast("Profile updated successfully!", "success");
             } else {
                 const err = await res.json().catch(() => null);
+                console.log(`[API ERROR] Profile update failed:`, err);
                 showToast(err?.message || "Failed to update profile.", "error");
             }
         } catch (error) {
+            console.error(`[API CATCH ERROR] Profile update:`, error);
             showToast("Network error. Please try again.", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Request the OTP to reset password
     const handleRequestPasswordReset = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!resetData.email) return showToast("Please enter your email", "error");
@@ -108,6 +176,10 @@ export default function BusinessSettingsClient() {
         setIsSaving(true);
         try {
             const payload = { email: resetData.email };
+            
+            console.log(`[API CALL] POST ${BASE_URL}/auth/forgot-password`);
+            console.log(`[API PAYLOAD] Request reset code:`, payload);
+
             const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -115,19 +187,24 @@ export default function BusinessSettingsClient() {
             });
 
             if (res.ok) {
+                const data = await res.json();
+                console.log(`[API RESPONSE] Reset code sent:`, data);
                 showToast("Reset code sent to your email!", "success");
                 setResetStep(2); 
             } else {
                 const data = await res.json().catch(() => ({}));
+                console.log(`[API ERROR] Reset code request failed:`, data);
                 showToast(data.message || "Failed to send reset email.", "error");
             }
         } catch (error) {
+            console.error(`[API CATCH ERROR] Request reset code:`, error);
             showToast("Network error. Please try again.", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Submit the OTP and the new password
     const handleSubmitNewPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!resetData.code || !resetData.newPassword) return showToast("Please fill all fields", "error");
@@ -135,6 +212,10 @@ export default function BusinessSettingsClient() {
         setIsSaving(true);
         try {
             const payload = { email: resetData.email, code: resetData.code, newPassword: resetData.newPassword };
+            
+            console.log(`[API CALL] POST ${BASE_URL}/auth/reset-password`);
+            console.log(`[API PAYLOAD] Submit new password:`, { email: payload.email, code: payload.code, newPassword: "[REDACTED]" });
+
             const res = await fetch(`${BASE_URL}/auth/reset-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -142,20 +223,25 @@ export default function BusinessSettingsClient() {
             });
 
             if (res.ok) {
+                const data = await res.json();
+                console.log(`[API RESPONSE] Password updated:`, data);
                 showToast("Password updated successfully!", "success");
                 setResetStep(1);
                 setResetData({ email: "", code: "", newPassword: "" });
             } else {
                 const data = await res.json().catch(() => ({}));
+                console.log(`[API ERROR] Password update failed:`, data);
                 showToast(data.message || "Failed to update password.", "error");
             }
         } catch (error) {
+            console.error(`[API CATCH ERROR] Submit new password:`, error);
             showToast("Network error. Please try again.", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
+    // Permanently delete user account
     const handleDeleteAccount = async () => {
         const confirmDelete = window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.");
         if (!confirmDelete) return;
@@ -165,21 +251,25 @@ export default function BusinessSettingsClient() {
 
         setIsSaving(true);
         try {
+            console.log(`[API CALL] DELETE ${BASE_URL}/users/account`);
+
             const res = await fetch(`${BASE_URL}/users/account`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
             if (res.ok) {
+                console.log(`[API RESPONSE] Account deleted.`);
                 showToast("Account deleted successfully.", "success");
-                // Fix: Replace localStorage.clear() with targeted removal
                 localStorage.removeItem("accessToken");
                 window.location.href = "/business/login";
             } else {
                 const err = await res.json().catch(() => null);
+                console.log(`[API ERROR] Delete account failed:`, err);
                 showToast(err?.message || "Failed to delete account.", "error");
             }
         } catch (error) {
+            console.error(`[API CATCH ERROR] Delete account:`, error);
             showToast("Network error. Please try again.", "error");
         } finally {
             setIsSaving(false);
@@ -208,6 +298,7 @@ export default function BusinessSettingsClient() {
                 
                 <h1 className="sr-only">Business Settings</h1>
 
+                {/* Sidebar Navigation */}
                 <div className="w-full md:w-64 bg-white rounded-3xl p-4 shadow-sm border border-gray-100 shrink-0">
                     <h2 className="text-xl font-bold mb-6 px-4 pt-2 text-black">Settings</h2>
                     <div className="flex flex-col gap-2">
@@ -236,6 +327,7 @@ export default function BusinessSettingsClient() {
                     </div>
                 </div>
 
+                {/* Main Content Area */}
                 <div className="flex-1 w-full max-w-3xl bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-gray-100 min-h-[500px]">
 
                     {activeTab === "general" && (
@@ -255,11 +347,39 @@ export default function BusinessSettingsClient() {
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">Website URL</label>
                                         <input type="url" value={generalData.websiteUrl} onChange={(e) => setGeneralData({ ...generalData, websiteUrl: e.target.value })} placeholder="https://yourwebsite.com" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
-                                        <input type="text" value={generalData.category} onChange={(e) => setGeneralData({ ...generalData, category: e.target.value })} placeholder="e.g. Technology" className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 focus:bg-white transition-all" />
-                                    </div>
                                 </div>
+
+                                {/* Category Multi-Select */}
+                                <div className="pt-2">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <label className="block text-sm font-semibold text-gray-700">Categories</label>
+                                        <span className="text-xs font-medium text-gray-500">
+                                            {generalData.category.length} / 3 selected (Min 2)
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-2">
+                                        {AVAILABLE_INDUSTRIES.map((industry) => {
+                                            const isSelected = generalData.category.includes(industry);
+                                            return (
+                                                <button
+                                                    key={industry}
+                                                    type="button"
+                                                    onClick={() => toggleCategory(industry)}
+                                                    className={`px-4 py-2 rounded-full text-xs font-semibold transition-all border cursor-pointer ${
+                                                        isSelected 
+                                                        ? "bg-indigo-50 border-[#5B4DFF] text-[#5B4DFF]" 
+                                                        : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:bg-gray-50"
+                                                    }`}
+                                                >
+                                                    {industry}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                   
+                                </div>
+
                                 <div className="pt-6">
                                     <button type="submit" disabled={isSaving} className="bg-[#5B4DFF] hover:bg-indigo-600 text-white font-bold py-3.5 px-8 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer">
                                         {isSaving ? "Saving..." : "Save Changes"}
