@@ -92,17 +92,17 @@ export default function CreatorMessagesClient() {
     const { socket, isConnected } = useSocket();
     
     const [searchQuery, setSearchQuery] = useState("");
-    
-    const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-    const [paymentReference, setPaymentReference] = useState("");
-    const [isVerifying, setIsVerifying] = useState(false);
-    const [verificationResult, setVerificationResult] = useState<{status: string, amount?: number} | null>(null);
-
     const [loadingConversations, setLoadingConversations] = useState(true);
     const [initialLoadingMessages, setInitialLoadingMessages] = useState(false); 
     
     const [newMessage, setNewMessage] = useState("");
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+    // Restored verification states
+    const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+    const [paymentReference, setPaymentReference] = useState("");
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [verificationResult, setVerificationResult] = useState<{status: string, amount?: number} | null>(null);
 
     const [toast, setToast] = useState({ message: "", type: "success" as "success"|"error", isVisible: false });
     
@@ -144,7 +144,6 @@ export default function CreatorMessagesClient() {
 
             await fetchUnreadCount(token);
 
-            
             const res = await fetch(`${BASE_URL}/conversations`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -178,6 +177,7 @@ export default function CreatorMessagesClient() {
 
             if (res.ok) {
                 const data = await res.json();
+                
                 const sorted = data.sort((a: Message, b: Message) => 
                     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
                 );
@@ -191,10 +191,11 @@ export default function CreatorMessagesClient() {
                 });
             }
 
-            await fetch(`${BASE_URL}/messages/read/${activeChatId}`, {
+            const readRes = await fetch(`${BASE_URL}/messages/read/${activeChatId}`, {
                 method: "PATCH",
                 headers: { "Authorization": `Bearer ${token}` }
             });
+            
             fetchUnreadCount(token);
             
         } catch (error) {
@@ -248,6 +249,7 @@ export default function CreatorMessagesClient() {
                 content: messageToSend
             };
 
+           
 
             const res = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                 method: "POST",
@@ -260,6 +262,7 @@ export default function CreatorMessagesClient() {
             });
 
             if (res.ok) {
+                const data = await res.json();
                 fetchMessages(); 
             } else {
                 const errText = await res.text();
@@ -290,6 +293,8 @@ export default function CreatorMessagesClient() {
         formData.append("file", file); 
 
         try {
+            
+
             const msgRes = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}` },
@@ -297,6 +302,7 @@ export default function CreatorMessagesClient() {
             });
 
             if (msgRes.ok) {
+                const data = await msgRes.json();
                 fetchMessages();
             } else {
                 const errData = await msgRes.json().catch(() => null);
@@ -310,6 +316,7 @@ export default function CreatorMessagesClient() {
         }
     };
 
+    // Restored verify function for creator fallback check
     const handleVerifyPayment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!paymentReference.trim()) return;
@@ -322,6 +329,7 @@ export default function CreatorMessagesClient() {
 
         try {
             const trimmedRef = paymentReference.trim();
+            
             
             const res = await fetch(`${BASE_URL}/payments/verify/${trimmedRef}`, {
                 method: "GET",
@@ -388,6 +396,7 @@ export default function CreatorMessagesClient() {
 
     const handleChatSelect = (id: string) => {
         setActiveChatId(id);
+        // Clear modal states when changing chats
         setPaymentReference("");
         setVerificationResult(null);
         setIsVerifyModalOpen(false);
@@ -397,7 +406,6 @@ export default function CreatorMessagesClient() {
         setActiveChatId(null); 
     };
 
-    // Fix 2: Filter out any chats where the status is ENDED
     const filteredConversations = conversations.filter(chat => 
         chat.status !== "ENDED" && getBusinessName(chat).toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -530,7 +538,7 @@ export default function CreatorMessagesClient() {
                                     
                                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
                                         
-                                        {/* Fix 3: Shortened button text on mobile via span hidden utilities */}
+                                        {/* Restored manual Verify Button */}
                                         <button 
                                             onClick={() => setIsVerifyModalOpen(true)} 
                                             className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold py-1.5 px-3 md:py-2 md:px-4 rounded-xl text-xs md:text-sm transition-colors shadow-sm cursor-pointer whitespace-nowrap"
@@ -538,7 +546,7 @@ export default function CreatorMessagesClient() {
                                             <span className="hidden sm:inline">Verify Payment</span>
                                             <span className="sm:hidden">Verify</span>
                                         </button>
-                                        
+
                                         {!isChatEnded && (
                                             <button 
                                                 onClick={handleEndConversation}
@@ -566,7 +574,6 @@ export default function CreatorMessagesClient() {
                                         </div>
                                     )}
 
-                                    {/* Fix 4: Added inline chat banner for pending end requests */}
                                     {!isChatEnded && activeConversation.businessEndRequested && (
                                         <div className="flex justify-center my-4">
                                             <span className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2 rounded-full border border-red-100">
@@ -716,7 +723,7 @@ export default function CreatorMessagesClient() {
                 </div>
             </main>
 
-            {/* --- VERIFY PAYMENT MODAL --- */}
+            {/* --- RESTORED VERIFY PAYMENT MODAL --- */}
             {isVerifyModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white w-full max-w-md rounded-[2rem] p-8 relative shadow-2xl animate-in slide-in-from-bottom-10 duration-300 border border-gray-100">
@@ -752,7 +759,7 @@ export default function CreatorMessagesClient() {
                                             required
                                             value={paymentReference}
                                             onChange={(e) => setPaymentReference(e.target.value)}
-                                            placeholder="Caskayd_..."
+                                            placeholder="CSK_COL_..."
                                             className="w-full bg-[#F8F9FB] border border-gray-200 rounded-xl py-3.5 px-4 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400 transition-all font-mono text-sm"
                                         />
                                     </div>

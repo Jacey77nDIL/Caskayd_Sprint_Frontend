@@ -141,7 +141,6 @@ export default function BusinessMessagesClient() {
         setActiveChatId(null); 
     };
 
-    // Fix 2: Filter out any chats where the status is ENDED
     const filteredConversations = conversations.filter(chat => 
         chat.status !== "ENDED" && getCreatorName(chat).toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -154,7 +153,7 @@ export default function BusinessMessagesClient() {
 
     const fetchUnreadCount = async (token: string) => {
         try {
-           
+            
             const res = await fetch(`${BASE_URL}/messages/unread/count`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -230,15 +229,14 @@ export default function BusinessMessagesClient() {
                 });
             }
 
-           
-            await fetch(`${BASE_URL}/messages/read/${activeChatId}`, {
+            const readRes = await fetch(`${BASE_URL}/messages/read/${activeChatId}`, {
                 method: "PATCH",
                 headers: { "Authorization": `Bearer ${token}` }
             });
+            
             fetchUnreadCount(token);
             
         } catch (error) {
-            
         } finally {
             if (showLoadingState) setInitialLoadingMessages(false);
         }
@@ -253,7 +251,6 @@ export default function BusinessMessagesClient() {
         }
 
         if (socket && isConnected) {
-            
             socket.emit("active_chat", { conversationId: activeChatId });
         }
 
@@ -264,7 +261,6 @@ export default function BusinessMessagesClient() {
         }, 3000);
 
         const handleIncomingMessage = (payload: any) => {
-            
             fetchMessages(); 
         };
 
@@ -291,7 +287,7 @@ export default function BusinessMessagesClient() {
                 content: messageToSend
             };
 
-            
+           
 
             const res = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                 method: "POST",
@@ -304,17 +300,15 @@ export default function BusinessMessagesClient() {
             });
 
             if (res.ok) {
-                
+                const data = await res.json();
                 fetchMessages(); 
             } else {
                 const errText = await res.text();
-                
                 setNewMessage(messageToSend); 
                 showToast("Failed to send message", "error");
             }
         } catch (error) {
-            
-            setNewMessage(messageToSend); 
+                setNewMessage(messageToSend); 
         }
     };
 
@@ -338,6 +332,7 @@ export default function BusinessMessagesClient() {
 
         try {
             
+
             const msgRes = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                 method: "POST",
                 headers: {
@@ -347,7 +342,7 @@ export default function BusinessMessagesClient() {
             });
 
             if (msgRes.ok) {
-                
+                const data = await msgRes.json();
                 fetchMessages(); 
             } else {
                 const errData = await msgRes.json().catch(() => null);
@@ -395,10 +390,14 @@ export default function BusinessMessagesClient() {
         setIsProcessingPayment(true);
 
         try {
+            // Added the required redirectUrl parameter
             const payload = {
                 creatorId: activeConversation.userId, 
-                amount: Number(paymentAmount)
+                amount: Number(paymentAmount),
+                redirectUrl: `${window.location.origin}/business/callback`
             };
+
+            
 
             const res = await fetch(`${BASE_URL}/payments/pay`, {
                 method: "POST",
@@ -417,12 +416,12 @@ export default function BusinessMessagesClient() {
 
                 if (authUrl && reference) {
                     
+                    // Send an automated message about the initiation
                     try {
                         const messageContent = `Payment initiated successfully. Reference ID: ${reference}`;
                         const automatedPayload = { type: "TEXT", content: messageContent }; 
-
                         
-                        const msgRes = await fetch(`${BASE_URL}/messages/${activeChatId}`, {
+                        await fetch(`${BASE_URL}/messages/${activeChatId}`, {
                             method: "POST",
                             headers: { 
                                 "Content-Type": "application/json",
@@ -431,13 +430,13 @@ export default function BusinessMessagesClient() {
                             },
                             body: JSON.stringify(automatedPayload) 
                         });
-
-                        if (msgRes.ok) {
-                        } else {
-                        }
                     } catch (msgError) {
                     }
 
+                    // Save reference to storage before redirecting to Flutterwave
+                    localStorage.setItem("pending_payment_reference", reference);
+                    
+                    // Redirect user
                     window.location.href = authUrl;
 
                 } else {
@@ -445,16 +444,19 @@ export default function BusinessMessagesClient() {
                     setIsProcessingPayment(false);
                 }
             } else {
+                const errorData = await res.json().catch(() => null);
                 alert("Payment failed to initialize.");
                 setIsProcessingPayment(false);
             }
         } catch (error) {
+            
             alert("Network error during payment.");
             setIsProcessingPayment(false);
         }
     };
 
     const numericAmount = Number(paymentAmount);
+    // Note: The backend calculates the final fee, this is purely visual for the user
     const platformFee = isNaN(numericAmount) ? 0 : numericAmount * 0.10;
     const totalAmount = isNaN(numericAmount) ? 0 : numericAmount + platformFee;
 
@@ -549,7 +551,6 @@ export default function BusinessMessagesClient() {
                                     
                                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
                                         
-                                        {/* Fix 3: Shortened button text on mobile via span hidden utilities */}
                                         <button 
                                             onClick={() => setIsPaymentModalOpen(true)}
                                             className="bg-[#D1F7C4] hover:bg-[#bbf0aa] text-[#0A4D36] font-bold py-1.5 px-3 md:py-2 md:px-4 rounded-xl text-xs md:text-sm transition-colors shadow-sm cursor-pointer whitespace-nowrap"
@@ -583,7 +584,6 @@ export default function BusinessMessagesClient() {
                                         </div>
                                     )}
 
-                                    {/* Fix 4: Added inline chat banner for pending end requests */}
                                     {!isChatEnded && activeConversation.creatorEndRequested && (
                                         <div className="flex justify-center my-4">
                                             <span className="bg-red-50 text-red-600 text-xs font-bold px-4 py-2 rounded-full border border-red-100">
